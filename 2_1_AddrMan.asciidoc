@@ -285,6 +285,13 @@ The 4 peers that have the hash with lower value will be protected from eviction.
 
 The net group, as mentioned before, is the /16 IPv4 prefix of the peer’s IP address or the ASN if the asmap file is provided.
 
+[source,c++]  
+----
+static bool CompareNetGroupKeyed(const NodeEvictionCandidate &a, const NodeEvictionCandidate &b) {
+    return a.nKeyedNetGroup < b.nKeyedNetGroup;
+}
+----
+
 // Rule 2
 Then, the 8 peers with the lowest minimum ping time are protected. An attacker cannot manipulate this metric without physically moving nodes closer to the target.
 
@@ -327,6 +334,14 @@ Every peer has the `m_min_ping_time` field that stores the fastest time the peer
 
 This field is used to find the 8 peers with the lowest minimum ping time and protect them.
 
+[source,c++]  
+----
+static bool ReverseCompareNodeMinPingTime(const NodeEvictionCandidate &a, const NodeEvictionCandidate &b)
+{
+    return a.m_min_ping_time > b.m_min_ping_time;
+}
+----
+
 // Rule 3
 Then the method protects 4 nodes that most recently sent us novel transactions accepted into our mempool. An attacker cannot manipulate this metric without performing a large amount of work.
 
@@ -335,6 +350,26 @@ To verify this criterion, the `nLastTXTime` variable is used. Each connected pee
 However, it is common for a node to have more than a few peers that have not yet relayed transactions. In that case, the `nLastTXTime` will be 0 and therefore, other fields will used to evaluate this criterion. The fields are, in order of relevance: `fRelayTxes`, `fBloomFilter` and `nTimeConnected`.
 
 `fRelayTxes` is a field sent by the remote peer in the `VERSION` message, when initializing  the connection. It was added in v0.8.0 (protocol version 70001) to implement the BIP 37 specification that defines Bloom Filters and the `fRelay` field.
+
+[source,c++]  
+----
+void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, ...)
+{
+    // ...
+    if (msg_type == NetMsgType::VERSION) {
+        // ...
+        if (!vRecv.empty())
+            vRecv >> fRelay;
+        // ...
+        if (pfrom.m_tx_relay != nullptr) {
+            LOCK(pfrom.m_tx_relay->cs_filter);
+            pfrom.m_tx_relay->fRelayTxes = fRelay;
+        }
+        // ...
+    }
+    // ...
+}
+----
 
 It the field value is 0x00 (`false`), no `INV` messages or `TX` messages announcing new transactions should be sent to this peer until it sends a `FILTERLOAD` message or `FILTERCLEAR` message. If the relay field is not present or is set to 0x01, this peer wants `INV` messages and `TX` messages announcing new transactions (no change in protocol behaviour).
 
@@ -350,9 +385,20 @@ Other messages related to Bloom Filters are `FILTERADD` and `FILTERCLEAR`. +
 
 The peers connection with empty Bloom Filters will be priorized to be protected. The idea is to prioritize connections to full nodes instead to SPV nodes.
 
-If none of the above fields can be used in evaluation, `nTimeConnected` will decide. The 4 peers with the longer connection time will be protected. 
+If none of the above fields can be used in evaluation, `nTimeConnected` will decide. The 4 peers that have been connected the longest will be protected. 
 
-// Rule 5
+[source,c++]  
+----
+static bool CompareNodeTXTime(const NodeEvictionCandidate &a, const NodeEvictionCandidate &b)
+{
+    if (a.nLastTXTime != b.nLastTXTime) return a.nLastTXTime < b.nLastTXTime;
+    if (a.fRelayTxes != b.fRelayTxes) return b.fRelayTxes;
+    if (a.fBloomFilter != b.fBloomFilter) return a.fBloomFilter;
+    return a.nTimeConnected > b.nTimeConnected;
+}
+----
+
+// Rule 4
 
 [[references]]
 === References
