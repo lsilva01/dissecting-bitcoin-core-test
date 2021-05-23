@@ -530,8 +530,8 @@ The `vEvictionCandidates` is already sorted by reverse connect time. Therefore, 
 }
 ----
 
-The following table summarizes the rules.
-Note that, until 9th rule, it is about the peers that will be protected.
+The following table summarizes the rules. +
+Note that, until 9th rule, it is about the peers that will be protected. +
 The 9th and 10th rules are about the peer that will be disconnected.
 
 |===
@@ -588,7 +588,7 @@ a| `CNode::nTimeConnected` (highest)
 |
 
 | 10
-| identify the network group with the most connections and evict the youngest member
+| Identify the network group with the most connections and evict the youngest member
 | `CNetAddr::GetGroup()` (with the most connections)
 | `CNode::nTimeConnected` (lowest)
 
