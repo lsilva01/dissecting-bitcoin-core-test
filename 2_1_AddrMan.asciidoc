@@ -172,8 +172,6 @@ However, increasing the table sizes actually makes the EREBUS attack much easier
 This is a case of conflicting requirements, where the tradeoff between both has to be well evaluated.
 ===============================
 
-=== Areas for research
-
 [[references]]
 === References
 
