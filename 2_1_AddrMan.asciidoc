@@ -539,12 +539,12 @@ The 9th and 10th rules are about the peer that will be disconnected.
 
 | 1 
 | 4 peers with the highest network group
-| `CNetAddr::GetGroup()` 
+| `CNetAddr::GetGroup()` (highest) 
 | 
 
 | 2
 | 8 peers with the lowest minimum ping time
-| `CNetAddr::m_min_ping_time` 
+| `CNetAddr::m_min_ping_time` (lowest)
 | 
 
 | 3
