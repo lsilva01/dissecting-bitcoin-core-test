@@ -558,13 +558,13 @@ a| `CNode::TxRelay::fRelayTxes` (true) +
 | Protect up to 8 block-relay only peers that have sent novel blocks
 | `CNode::TxRelay::fRelayTxes` (false)
 a| `CNode::nLastBlockTime` (highest) +
-`HasAllDesirableServiceFlags(node->nServices)` (true) +
+`HasAllDesirableServiceFlags()` (true) +
 `CNode::nTimeConnected` (highest)
 
 | 5
 | Protect 4 peers that most recently sent us novel blocks
 | `CNode::nLastBlockTime` (highest)
-a| `HasAllDesirableServiceFlags(node->nServices)` (true) +
+a| `HasAllDesirableServiceFlags()` (true) +
 `CNode::nTimeConnected` (highest)
 
 | 6
