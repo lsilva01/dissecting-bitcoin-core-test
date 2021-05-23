@@ -259,9 +259,9 @@ struct NodeEvictionCandidate
 
 //This method is very well-commented. Each step is  
 
-The first step is to deterministically select 4 peers to protect by the net group. An attacker cannot predict which net groups will be protected.
+The first step is to deterministically select 4 peers to protect by the network group. An attacker cannot predict which network groups will be protected.
 
-The net group key is represented by the field `nKeyedNetGroup` which is calculated at the time of the `CNode` instantiation, right after the connection has been accepted.
+The network group key is represented by the field `nKeyedNetGroup` which is calculated at the time of the `CNode` instantiation, right after the connection has been accepted.
 
 [source,c++]  
 ----
@@ -278,12 +278,12 @@ uint64_t CConnman::CalculateKeyedNetGroup(const CAddress& ad) const
 }
 ----
 
-`nSeed0` and `nSeed1` are also created when initializing the node and is used to construct a SipHash calculator. Then the hasher writes the arbitrary id `RANDOMIZER_ID_NETGROUP` and the net group of the node. The `Finalize()` method computes the 64-bit SipHash-2-4 of the data written.
+`nSeed0` and `nSeed1` are also created when initializing the node and is used to construct a SipHash calculator. Then the hasher writes the arbitrary id `RANDOMIZER_ID_NETGROUP` and the network group of the node. The `Finalize()` method computes the 64-bit SipHash-2-4 of the data written.
 
 // Rule 1
-The 4 peers that have the hash with lower value will be protected from eviction.
+The 4 peers that have the hash with the highest value will be protected from eviction.
 
-The net group, as mentioned before, is the /16 IPv4 prefix of the peer’s IP address or the ASN if the asmap file is provided.
+The network group, as mentioned before, is the /16 IPv4 prefix of the peer’s IP address or the ASN if the asmap file is provided.
 
 [source,c++]  
 ----
@@ -482,7 +482,7 @@ static bool CompareLocalHostTimeConnected(const NodeEvictionCandidate &a, const 
 
 The value `m_is_local` is obtained through `CNetAddr::IsLocal()` function, which basically checks if the address is the IPv4 loopback (127.0.0.0/8 or 0.0.0.0/8) or the IPv6 loopback (::1/128).
 // Rule 8
-The last step in `ProtectEvictionCandidatesByRatio()` is to calculate how many peers were removed from the eviction list, and update the total number of peers to protect based on uptime.
+The last step in `ProtectEvictionCandidatesByRatio()` is to calculate how many peers were removed from the eviction list, and update the total number of peers to protect based on uptime. This number corresponds to half of the total connected nodes.
 
 [source,c++]  
 ----
@@ -492,16 +492,107 @@ static bool ReverseCompareNodeTimeConnected(const NodeEvictionCandidate &a, cons
 }
 ----
 
-In this step, the `ProtectEvictionCandidatesByRatio()` ends and the processing returns to `SelectNodeToEvict()` to perfom two more validations.
+Then, the `ProtectEvictionCandidatesByRatio()` ends and the processing returns to `SelectNodeToEvict()` to perfom two more validations.
 
 // Rule 9
 The first one is to check if there are any remaining peers preferred for eviction. If so, consider only them to be evicted. This happens after all the other validations since if a peer is really the best by other criteria (especially in relaying blocks) then it will be protected and should not be evicted.
 
 The field `prefer_evict` is used in this validation. This field will be true if the peer's misbehavior score exceeds the `DISCOURAGEMENT_THRESHOLD` (100 points). 
 
+// Rule 10
+The last eviction rule is to identify the network group with the most connections and evict the youngest member (which are connected for less time).
 
+The `vEvictionCandidates` is already sorted by reverse connect time. Therefore, the function loops through the list checking the `nKeyedNetGroup` field and counting the size per network group. The peer belonging to the largest group and with the lowest connection time will be disconnected.
 
+[source,c++]  
+----
+[[nodiscard]] std::optional<NodeId> SelectNodeToEvict(std::vector<NodeEvictionCandidate>&& vEvictionCandidates)
+{
+    // ....
+    std::map<uint64_t, std::vector<NodeEvictionCandidate> > mapNetGroupNodes;
+    for (const NodeEvictionCandidate &node : vEvictionCandidates) {
+        std::vector<NodeEvictionCandidate> &group = mapNetGroupNodes[node.nKeyedNetGroup];
+        group.push_back(node);
+        const int64_t grouptime = group[0].nTimeConnected;
 
+        if (group.size() > nMostConnections || (group.size() == nMostConnections && grouptime > nMostConnectionsTime)) {
+            nMostConnections = group.size();
+            nMostConnectionsTime = grouptime;
+            naMostConnections = node.nKeyedNetGroup;
+        }
+    }
+
+    // Reduce to the network group with the most connections
+    vEvictionCandidates = std::move(mapNetGroupNodes[naMostConnections]);
+
+    // Disconnect from the network group with the most connections
+    return vEvictionCandidates.front().id;
+}
+----
+
+The following table summarizes the rules.
+Note that, until 9th rule, it is about the peers that will be protected.
+The 9th and 10th rules are about the peer that will be disconnected.
+
+|===
+|# |Rule (to protect the peers) | Main Criterion | Other Criteria
+
+| 1 
+| 4 peers with the highest network group
+| `CNetAddr::GetGroup()` 
+| 
+
+| 2
+| 8 peers with the lowest minimum ping time
+| `CNetAddr::m_min_ping_time` 
+| 
+
+| 3
+| 4 peers that most recently sent us novel transactions
+| `CNetAddr::nLastTXTime` (highest)
+a| `CNode::TxRelay::fRelayTxes` (true) +
+`CNode::TxRelay::pfilter` (empty) +
+`CNode::nTimeConnected` (highest)
+
+| 4
+| Protect up to 8 block-relay only peers that have sent novel blocks
+| `CNode::TxRelay::fRelayTxes` (false)
+a| `CNode::nLastBlockTime` (highest) +
+`HasAllDesirableServiceFlags(node->nServices)` (true) +
+`CNode::nTimeConnected` (highest)
+
+| 5
+| Protect 4 peers that most recently sent us novel blocks
+| `CNode::nLastBlockTime` (highest)
+a| `HasAllDesirableServiceFlags(node->nServices)` (true) +
+`CNode::nTimeConnected` (highest)
+
+| 6
+| Protect up to 1/4 peers connected via the onion service
+| `CNode::m_inbound_onion` (true)
+a| `CNode::nTimeConnected` (highest)
+
+| 7
+| Any remaining slots of the 1/4 peers connected, or at least 2 additional slots, are allocated to localhost peers
+| `CNetAddr::IsLocal()` (true)
+a| `CNode::nTimeConnected` (highest)
+
+| 8
+| Protect the remaining peers until completing half of them all, prioritizing those with longest uptime
+| `CNode::nTimeConnected` (highest)
+|
+
+| 9
+| Consider only the peers preferred for eviction to be disconnected
+| `CNode::m_prefer_evict` (true)
+|
+
+| 10
+| identify the network group with the most connections and evict the youngest member
+| `CNetAddr::GetGroup()` (with the most connections)
+| `CNode::nTimeConnected` (lowest)
+
+|===
 
 [[references]]
 === References
