@@ -366,7 +366,7 @@ The `vEvictionCandidates` is already sorted by reverse connect time. Therefore, 
 === Summary
 
 The following table summarizes the rules. +
-Note that up to the 9th rule, it is about the peers that will be protected. +
+Note that until the 9th rule, it is about the peers that will be protected. +
 The 9th and 10th rules are about the peer that will be disconnected.
 
 |===
