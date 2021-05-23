@@ -370,20 +370,20 @@ Note that until the 9th rule, it is about the peers that will be protected. +
 The 9th and 10th rules are about the peer that will be disconnected.
 
 |===
-|# |Rule (to protect the peers) | Main Criterion | Other Criteria
+|# |Rule | Main Criterion | Other Criteria
 
 | 1 
-| 4 peers with the highest network group
+| Protect 4 peers with the highest network group
 | `CNetAddr::GetGroup()` (highest) 
 | 
 
 | 2
-| 8 peers with the lowest minimum ping time
+| Protect 8 peers with the lowest minimum ping time
 | `CNetAddr::m_min_ping_time` (lowest)
 | 
 
 | 3
-| 4 peers that most recently sent us novel transactions
+| Protect 4 peers that most recently sent us novel transactions
 | `CNetAddr::nLastTXTime` (highest)
 a| `CNode::TxRelay::fRelayTxes` (true) +
 `CNode::TxRelay::pfilter` (empty) +
@@ -408,7 +408,7 @@ a| `HasAllDesirableServiceFlags()` (true) +
 a| `CNode::nTimeConnected` (highest)
 
 | 7
-| Any remaining slots of the 1/4 peers connected, or at least 2 additional slots, are allocated to localhost peers
+| Any remaining slots of the 1/4 peers connected, or at least 2 additional slots, are allocated to protect localhost peers
 | `CNetAddr::IsLocal()` (true)
 a| `CNode::nTimeConnected` (highest)
 
