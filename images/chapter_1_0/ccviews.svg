@@ -132,5 +132,4 @@
 </g><g class="edge" id="edge7"><title>CCoinsViewBacked-&gt;CCoinsViewMemPool</title>
 <path d="M402.125,-223.572C429.474,-189.015 478.259,-127.375 507.017,-91.0392" fill="none" stroke="black"/><path d="M402.125,-223.572C429.474,-189.015 478.259,-127.375 507.017,-91.0392" fill="none" filter="url(#shadow)" stroke="black" style="stroke:{@stroke}; stroke-opacity:0.1; fill:none;"/>
 <polygon fill="none" filter="url(#shadow)" points="399.12,-221.729 399.1961903046684,-221.9379627974087 395.658,-231.743 395.658,-231.743 397.2522516600388,-230.61241077201876 404.609,-226.073 404.609,-226.073 402.6317457463129,-224.0096877369642 399.12,-221.729 " stroke="black" style="fill: black; stroke: none; fill-opacity:0.2"/><polygon fill="none" points="399.12,-221.729 397.5267858001661,-227.1594047214792 395.658,-231.743 395.658,-231.743 397.78246811223283,-230.31024206598957 404.609,-226.073 404.609,-226.073 403.9115886830933,-225.13505809890611 399.12,-221.729 " stroke="black" style="fill:url(#none);stroke:black;"/>
-</g></g>
-<text style="fill: lightslategray; font-size: 6pt; font-family: Verdana" x="526" y="512">CREATED WITH YUML</text></svg>
+</g></g></svg>
