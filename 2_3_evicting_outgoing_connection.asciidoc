@@ -17,7 +17,7 @@ The commit https://github.com/bitcoin/bitcoin/commit/6d1d33d33491a98bb0dbf64ea7e
  cd bitcoin
  git checkout -b text_branch 6d1d33d33491
 
-=== Disconnecting from bad outbound peers in IBD 
+=== Disconnecting from bad outbound peers with bad headers chains in IBD 
 
 When in IBD, the node needs to use all of the outbound peers to help it to synchronize the chain. Any outbound peers whose headers have insufficient work must be disconnected.
 
@@ -55,4 +55,53 @@ If none of these criteria are true, the IBD is considered completed and this res
 `nCount` is the size of the `HEADER` message. It usually has 2,000 headers (`MAX_BLOCKS_TO_ANNOUNCE`). If the size is less than that number, then there is no more headers to fetch from the peer that sent the message. So it is safe to assess whether the peer has sufficient chain work.
 
 If the peer has too little work on their headers chain to help the synchronization, it will be disconnected. Note that the peer's tip is compared to `nMinimumChainWork` (instead of `m_chainman.ActiveChain().Tip()`) because the block download will not start until the node has a headers chain that has at least the `nMinimumChainWork`.
+
+== Disconnection of outbound peers on bad/slow chains
+
+The 4 fist peers that gave us a valid connecting header, their the chain tips has at least as much work as the node and the connection type is outbound full relay will not be subject to eviction under the bad/lagging chain logic.
+
+The reason for this protection is to prevent excessive network topology changes as a result of this algorithm, while still ensuring that the node have a reasonable number of nodes not known to be on bogus chains.
+
+[source,c++]  
+----
+void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, ...)
+{
+    // ...
+    if (!pfrom.fDisconnect && pfrom.IsFullOutboundConn() && nodestate->pindexBestKnownBlock != nullptr) {
+        if (m_outbound_peers_with_protect_from_disconnect < MAX_OUTBOUND_PEERS_TO_PROTECT_FROM_DISCONNECT && nodestate->pindexBestKnownBlock->nChainWork >= m_chainman.ActiveChain().Tip()->nChainWork && !nodestate->m_chain_sync.m_protect) {
+            LogPrint(BCLog::NET, "Protecting outbound peer=%d from eviction\n", pfrom.GetId());
+            nodestate->m_chain_sync.m_protect = true;
+            ++m_outbound_peers_with_protect_from_disconnect;
+        }
+    }
+}
+----
+
+The limit of the peers that will be protected is defined by the constant `MAX_OUTBOUND_PEERS_TO_PROTECT_FROM_DISCONNECT`, which is currently 4.
+
+To store which peers are protected and to implement the eviction logic, the `ChainSyncTimeoutState` struct was created.
+
+[source,c++]  
+----
+struct ChainSyncTimeoutState {
+    int64_t m_timeout{0};
+    const CBlockIndex* m_work_header{nullptr};
+    bool m_sent_getheaders{false};
+    bool m_protect{false};
+};
+----
+
+This eviction logic is implemented in `PeerManagerImpl::ConsiderEviction(...)` method. Firslty, it checks the peer is not protected, the connection type is outbound full relay and the node has started headers synchronization with this peer.
+
+Then, it checks if the peer's tip is greater than the node. If so, there is no need to evict the peer and the `CNodeState::m_chain_sync` is restored to its default value and the timeout is set to 0. Otherwise, it means that the best block known by this peer is behind the node's tip and a timeout of 20 minutes (CHAIN_SYNC_TIMEOUT) is set to check the status of the peer again.
+
+When this timeout expires and the peer's best block is still behind the node's tip, so the node sends `GETHEADERS` message and waits another 2 minutes (HEADERS_RESPONSE_TIME) for the reply.
+
+If after that time, the peer's best known block still has less work than the node's tip, it is disconnected.
+
+Note that this logic does not require the peers to be on the same chain as the node, to prevent accidental partitioning of the network in the event of a chain split. If the peers are ever on a more work chain than the node's tip, then the node will download and validate it as usual.
+
+=== Connecting to a new outbound peer if the node's tip is stale
+
+
 
