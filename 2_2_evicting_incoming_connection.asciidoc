@@ -32,7 +32,7 @@ void CConnman::CreateNodeFromAcceptedSocket(...)
 
 This eviction mechanism was implemented in the PR #6374 to prevent DoS attacks, allowing  new incoming connections to evict old incoming connections. Since connection slots are a limited resource, they can be the target of this type of attack.
 
-A DoS connection exhaustion attack is when an adversary fills all available incoming connection slots on the network, then overtakes the outbounds for a victim just starting up. Mitigating this issue it is important to take steps to avoid network partitioning. 
+A DoS connection exhaustion attack is when an adversary fills all available incoming connection slots on the network, then overtakes the outbounds for a victim just starting up. Mitigating this issue is important to take steps to avoid network partitioning. 
 
 However, this mechanism introduced the possibility of an attacker purposely evict connections. Before that, a successful Eclipse Attack required victim node to be restarted. Today, an attacker might be able to eclipse a node without reboots via connection eviction logic.
 
@@ -66,9 +66,9 @@ bool CConnman::AttemptToEvictConnection()
 
 The `AttemptToEvictConnection()` tries to find a connection to evict when the node's inbound connections limit is reached.
 
-It retrieves each connected node from `vNodes` and verifies if each of them has the permission _"noban"_, which means the peer cannot be banned, disconnected or discouraged for misbehavior. Then, it confirms that the peer is from an inbound connection and it will not be disconnected the next time `DisconnectNodes()` runs.
+It retrieves each connected node from `vNodes` and verifies if each of them has the permission _"noban"_, which means the peer cannot be banned, disconnected, or discouraged for misbehavior. Then, it confirms that the peer is from an inbound connection and it will not be disconnected the next time `DisconnectNodes()` runs.
 
-All candidates nodes to be evicted are allocated in the `vEvictionCandidates` vector. The `NodeEvictionCandidate` struct stores some relevant characteristics of the node connection to determine whether it should be evicted.
+All candidate nodes to be evicted are allocated in the `vEvictionCandidates` vector. The `NodeEvictionCandidate` struct stores some relevant characteristics of the node connection to determine whether it should be evicted.
 
 [source,c++]  
 ----
@@ -181,7 +181,7 @@ To verify this criterion, the `nLastTXTime` variable is used. Each connected pee
 
 However, it is common for a node to have more than a few peers that have not yet relayed transactions. In that case, the `nLastTXTime` will be 0 and therefore, other fields will be used to evaluate this criterion. The fields are, in order of relevance: `fRelayTxes`, `fBloomFilter` and `nTimeConnected`.
 
-`fRelayTxes` is a field sent by the remote peer in the `VERSION` message, when initializing  the connection. It was added in v0.8.0 (protocol version 70001) to implement the BIP 37 specification that defines this fied and the Bloom Filters.
+`fRelayTxes` is a field sent by the remote peer in the `VERSION` message, when initializing  the connection. It was added in v0.8.0 (protocol version 70001) to implement the BIP 37 specification that defines this field and the Bloom Filters.
 
 [source,c++]  
 ----
@@ -205,7 +205,7 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
 
 If the field value is 0x00 (`false`), no `INV` messages or `TX` messages announcing new transactions should be sent to this peer until it sends a `FILTERLOAD` message or `FILTERCLEAR` message. If the relay field is not present or is set to 0x01, this peer wants `INV` messages and `TX` messages announcing new transactions (no change in protocol behaviour).
 
-The peers connection with `fRelayTxes` as `true` will be priorized to be protected.
+The peer connections with `fRelayTxes` as `true` will be priorized to be protected.
 
 The next field is the `fBloomFilter`. This field has the value `true` if the peer has the Bloom filter defined (stored in `pfilter`). Otherwise, the value is `false`.
 
@@ -215,7 +215,7 @@ Other messages related to Bloom Filters are `FILTERADD` and `FILTERCLEAR`. +
 `FILTERADD` adds the provided data to the connections current filter without requiring a completely new one to be set. +
 `FILTERCLEAR` deletes the current filter and goes back to regular usage.
 
-The peers connection with empty Bloom Filters will be priorized to be protected. The idea is to prioritize connections to full nodes instead to SPV or other light nodes.
+The peer connections with empty Bloom Filters will be priorized to be protected. The idea is to prioritize connections to full nodes instead to SPV or other light nodes.
 
 If none of the above fields can be used in evaluation, `nTimeConnected` will decide. The 4 peers that have been connected the longest will be protected. 
 
@@ -239,7 +239,7 @@ So, for peers that have the same `fRelayTxes` value the `nLastBlockTime` field i
 
 Each connected peer has this field, which is the UNIX epoch time of the last block received from the peer that the node had not yet seen (for example, not yet received from another peer). The field is updated only after the block has passed the preliminary validity checks and has been saved to disk, even if the node does not connect the block or it eventually the block connection fails. 
 
-If the some peers has the same `nLastBlockTime` (haven't sent blocks yet), the ones that have all desirable services flags will be priorized to be protected. These flags are the NODE_NETWORK, NODE_WITNESS and, if the IBD is already completed, NODE_NETWORK_LIMITED.
+If some peers has the same `nLastBlockTime` (haven't sent blocks yet), the ones that have all desirable services flags will be prioritized to be protected. These flags are the NODE_NETWORK, NODE_WITNESS and, if the IBD is already completed, NODE_NETWORK_LIMITED.
 
 [source,c++]  
 ----
@@ -251,7 +251,7 @@ ServiceFlags GetDesirableServiceFlags(ServiceFlags services) {
 }
 ----
 
-NODE_NETWORK means that the node is capable of serving the complete block chain. It is currently set by all Bitcoin Core non pruned nodes, and is unset by SPV clients or other light clients.
+NODE_NETWORK means that the node can serve the complete block chain. It is currently set by all Bitcoin Core non pruned nodes and is unset by SPV clients or other light clients.
 
 NODE_WITNESS indicates that a node can be asked for blocks and transactions including witness data.
 
@@ -284,9 +284,10 @@ The most relevant field used to validate this rule is the `nLastBlockTime`, whic
 }
 ----
 
-Then the `ProtectEvictionCandidatesByRatio()` is called. The ideia here is to protect the half of the remaining nodes which have been connected the longest. To favorise the diversity of the peer connections, reserve up to (half + 2) of these protected spots for onion and localhost peers, if any, even if they're not longest uptime overall. This helps protect tor peers, which tend to be otherwise disadvantaged under our eviction criteria.
+Then the `ProtectEvictionCandidatesByRatio()` is called. The ideia here is to protect the half of the remaining nodes which have been connected the longest. To favorise the diversity of the peer connections, reserve up to (half + 2) of these protected spots for onion and localhost peers, if any, even if they are not longest uptime overall. This helps protect tor peers, which tend to be otherwise disadvantaged under our eviction criteria.
+
 // Rule 6
-The fist step in this method is to pick out up to 1/4 peers connected via the onion service, sorted by longest uptime.
+The first step in this method is to pick out up to 1/4 peers connected via the onion service, sorted by longest uptime.
 
 [source,c++]  
 ----
@@ -324,7 +325,7 @@ static bool ReverseCompareNodeTimeConnected(const NodeEvictionCandidate &a, cons
 }
 ----
 
-Then, the `ProtectEvictionCandidatesByRatio()` ends and the processing returns to `SelectNodeToEvict()` to perfom two more validations.
+Then, the `ProtectEvictionCandidatesByRatio()` ends and the processing returns to `SelectNodeToEvict()` to perform two more validations.
 
 // Rule 9
 The first one is to check if there are any remaining peers preferred for eviction. If so, consider only them to be evicted. This happens after all the other validations since if a peer is really the best by other criteria (especially in relaying blocks) then it will be protected and should not be evicted.
