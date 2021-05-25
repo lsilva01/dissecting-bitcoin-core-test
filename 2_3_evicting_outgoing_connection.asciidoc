@@ -44,11 +44,11 @@ The `CChainState::IsInitialBlockDownload()` method returns true if the node is s
 
 The other criteria to check whether the IBD is complete or not are:
 
-1) Check the `CChain::Tip()` value. This method returns the index entry for the tip of the chain, or `nullptr` if none, which means the IBD is still running.
+. Check the `CChain::Tip()` value. This method returns the index entry for the tip of the chain, or `nullptr` if none, which means the IBD is still running.
 
-2) If the the chain work for the last block is less than minimum chain work, then the IBD is still running. This concept was introduced in the the https://github.com/bitcoin/bitcoin/pull/9053[PR #9053] and it replaced the checkpoints and is the known amount of work in the chain for the network at the time of software release.
+. If the the chain work for the last block is less than minimum chain work, then the IBD is still running. This concept was introduced in the the https://github.com/bitcoin/bitcoin/pull/9053[PR #9053] and it replaced the checkpoints and is the known amount of work in the chain for the network at the time of software release.
 
-3) If the time of the last block (`nTime`) is earlier than the previous 24 hours from the current time, the IBD is still running.
+. If the time of the last block (`nTime`) is earlier than the previous 24 hours from the current time, the IBD is still running.
 
 If none of these criteria are true, the IBD is considered completed and this result is cached for later verification.
 
@@ -102,8 +102,6 @@ If after that time, the peer's best known block still has less work than the nod
 Note that this logic does not require the peers to be on the same chain as the node, to prevent accidental partitioning of the network in the event of a chain split. If the peers are ever on a more work chain than the node's tip, then the node will download and validate it as usual.
 
 === Connecting to a new outbound peer if the node's tip is stale
-
-//The logic mentioned in the previous section disconnects an outbound peer that serves us a headers chain with insufficient work while we're in IBD and the outbound peers whose chains fall out of sync with ours:. It was implemented in the PR #11490.
 
 The PR #11560 implements a new eviction logic. The node connects to an additional outbound peer when detects the tip looks stale. Periodically, it is checked if the node have more outbound peers than allowed. If so, disconnect the one that least recently announced a new block. It is designed to mitigate P2P disruption in the event that all our outbound peers stop relaying blocks to us.
 
@@ -170,3 +168,15 @@ The `EvictExtraOutboundPeers()` first checks if the node has any extra block-rel
 The youngest block-relay-only peer might be the extra peer that the node has temporarily connected to synchronize the node's tip. Note that higher node id (CNode::id) is used as a measure for most recent connection.
 
 The peer will only be evicted if it has been connected longer than 30 second (MINIMUM_CONNECT_TIME) and there is no block being fetched from it. This ensures the block has been connected enough to complete the handshake.
+
+After handling the block-relay-only connections, `EvictExtraOutboundPeers()` checks whether the node has too many outbound-full-relay peers.
+
+If so, it disconnects one, choosing the  peer that announced less recently a new block. If there are peers with the same announcement time (`CNodeState::m_last_block_announcement`), the one with higher node id (CNode::id) will be selected.
+
+=== Summary
+
+The node has two mechanisms to evict outbound peer stopped serving blocks for the node.
+
+The first one is to disconnect from bad outbound peers with bad headers chains in IBD.
+
+The second mechanism is to connect to new peers and evict ones if the node detects an potential stale tip event.
