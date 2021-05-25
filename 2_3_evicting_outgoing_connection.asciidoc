@@ -17,6 +17,7 @@ The commit https://github.com/bitcoin/bitcoin/commit/6d1d33d33491a98bb0dbf64ea7e
  cd bitcoin
  git checkout -b text_branch 6d1d33d33491
 
+[[disconnecting_headers_chains_ibd]]
 === Disconnecting from bad outbound peers with bad headers chains in IBD 
 
 When in IBD, the node needs to use all of the outbound peers to help it to synchronize the chain. Any outbound peers whose headers have insufficient work must be disconnected.
@@ -56,6 +57,7 @@ If none of these criteria are true, the IBD is considered completed and this res
 
 If the peer has too little work on their headers chain to help the synchronization, it will be disconnected. Note that the peer's tip is compared to `nMinimumChainWork` (instead of `m_chainman.ActiveChain().Tip()`) because the block download will not start until the node has a headers chain that has at least the `nMinimumChainWork`.
 
+[[disconnection_bad_slow]]
 == Disconnection of outbound peers on bad/slow chains
 
 The 4 fist peers that gave us a valid connecting header, their the chain tips has at least as much work as the node and the connection type is outbound full relay will not be subject to eviction under the bad/lagging chain logic.
@@ -101,6 +103,7 @@ If after that time, the peer's best known block still has less work than the nod
 
 Note that this logic does not require the peers to be on the same chain as the node, to prevent accidental partitioning of the network in the event of a chain split. If the peers are ever on a more work chain than the node's tip, then the node will download and validate it as usual.
 
+[[connecting_new_peer]]
 === Connecting to a new outbound peer if the node's tip is stale
 
 The PR #11560 implements a new eviction logic. The node connects to an additional outbound peer when detects the tip looks stale. Periodically, it is checked if the node have more outbound peers than allowed. If so, disconnect the one that least recently announced a new block. It is designed to mitigate P2P disruption in the event that all our outbound peers stop relaying blocks to us.
@@ -172,7 +175,7 @@ The peer will only be evicted if it has been connected longer than 30 second (MI
 After handling the block-relay-only connections, `EvictExtraOutboundPeers()` checks whether the node has too many outbound-full-relay peers.
 
 If so, it disconnects one, choosing the  peer that announced less recently a new block. If there are peers with the same announcement time (`CNodeState::m_last_block_announcement`), the one with higher node id (CNode::id) will be selected.
-
+[[summary]]
 === Summary
 
 The node has two mechanisms to evict outbound peer stopped serving blocks for the node.
