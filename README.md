@@ -75,13 +75,11 @@ Proposal: Review and update of the book "Dissection of Bitcoin"
   * [Eviction Mechanism](2_2_evicting_incoming_connection.asciidoc#eviction_mechanism)
   * [Summary](2_2_evicting_incoming_connection.asciidoc#summary)
   * [References](2_2_evicting_incoming_connection.asciidoc#references)
-
 * [Evicting An Outgoing Connection](2_3_evicting_outgoing_connection.asciidoc)
   * [Disconnecting from bad outbound peers with bad headers chains in IBD](2_3_evicting_outgoing_connection.asciidoc#disconnecting_headers_chains_ibd)
   * [Disconnection of outbound peers on bad/slow chains](2_3_evicting_outgoing_connection.asciidoc#disconnection_bad_slow)
   * [Connecting to a new outbound peer if the node's tip is stale](2_3_evicting_outgoing_connection.asciidoc#connecting_new_peer)
   * [Summary](2_3_evicting_outgoing_connection.asciidoc#summary)
-
 * [Adresses](3_0_bitcoin_address.asciidoc)
 * [Transactions](3_1_transactions.asciidoc)
 * [Serialization](4_0_serialization.asciidoc)
