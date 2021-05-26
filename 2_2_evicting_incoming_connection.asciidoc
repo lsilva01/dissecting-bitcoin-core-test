@@ -10,7 +10,7 @@ The commit https://github.com/bitcoin/bitcoin/commit/6d1d33d33491a98bb0dbf64ea7e
 [[eviction_mechanism]]
 === Eviction Mechanism
 
-When the number of peers has reached the limit of maximum connections, the next connecting inbound peer will trigger the eviction mechanism.
+When the number of peers reaches the maximum connection limit, the next connecting inbound peer will trigger the eviction mechanism.
 
 [source,c++]  
 ----
@@ -30,15 +30,15 @@ void CConnman::CreateNodeFromAcceptedSocket(...)
 }
 ----
 
-This eviction mechanism was implemented in the PR #6374 to prevent DoS attacks, allowing  new incoming connections to evict old incoming connections. Since connection slots are a limited resource, they can be the target of this type of attack.
+This eviction mechanism was implemented in the https://github.com/bitcoin/bitcoin/pull/6374[PR #6374] to prevent DoS attacks, allowing new incoming connections to evict old ones. Since connection slots are a limited resource, they can be the target of this type of attack.
 
-A DoS connection exhaustion attack is when an adversary fills all available incoming connection slots on the network, then overtakes the outbounds for a victim just starting up. Mitigating this issue is important to take steps to avoid network partitioning. 
+A DoS connection exhaustion attack is when an adversary fills all available incoming connection slots on the network, then then overtakes the outbound slots when the victim restarts the node. Mitigating this issue is important to avoid network partitioning. 
 
 However, this mechanism introduced the possibility of an attacker purposely evict connections. Before that, a successful Eclipse Attack required victim node to be restarted. Today, an attacker might be able to eclipse a node without reboots via connection eviction logic.
 
-Since reboots are no longer needed to perform Eclipse attacks, anchors connections (Eclipse countermeasure #5) provide less security improvements against such attacks.
+Since reboots are no longer needed to perform Eclipse attacks, anchors connections (Eclipse countermeasure #5) https://github.com/bitcoin/bitcoin/issues/17326#issuecomment-548410548[provide less security against such attacks].
 
-Even so, this mechanism might increase security. Half of the inbound connections are reserved for the longest running connections and there are several metrics to decide whether a connection will be evicted or not. This makes it much harder for an attacker to dominate in every category than it is to just dominate in a single metric.
+Even so, this mechanism might increase overall security. https://github.com/bitcoin/bitcoin/issues/17326#issuecomment-550523882[Half of the inbound connections are reserved for the longest running connections] and there are several metrics to decide whether a connection will be evicted or not. This makes it much harder for an attacker to dominate in every category than it is to just dominate in a single metric.
 
 [source,c++]  
 ----
@@ -64,11 +64,11 @@ bool CConnman::AttemptToEvictConnection()
 }
 ----
 
-The `AttemptToEvictConnection()` tries to find a connection to evict when the node's inbound connections limit is reached.
+The `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1001[AttemptToEvictConnection()]` tries to find a connection to evict when the node's inbound connections limit is reached.
 
-It retrieves each connected node from `vNodes` and verifies if each of them has the permission _"noban"_, which means the peer cannot be banned, disconnected, or discouraged for misbehavior. Then, it confirms that the peer is from an inbound connection and it will not be disconnected the next time `DisconnectNodes()` runs.
+It https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1007[retrieves each connected node] from `vNodes` and verifies if each of them has the https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1008[permission _"noban"_], which means the peer cannot be banned, disconnected, or discouraged for misbehavior. Then, it confirms that the peer is https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1010[not from an inbound connection] and it will https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1012[not be disconnected] the next time `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1187[DisconnectNodes()]` runs.
 
-All candidate nodes to be evicted are allocated in the `vEvictionCandidates` vector. The `NodeEvictionCandidate` struct stores some relevant characteristics of the node connection to determine whether it should be evicted.
+All candidate nodes to be evicted https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1187[are allocated] in the `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1187[vEvictionCandidates]` vector. The `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.h#L1270[NodeEvictionCandidate]` struct stores some relevant characteristics of the node connection to https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1187[determine whether it should be evicted].
 
 [source,c++]  
 ----
