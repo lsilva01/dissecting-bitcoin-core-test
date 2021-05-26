@@ -402,52 +402,52 @@ The 9th and 10th rules are about the peer that will be disconnected.
 | 
 
 | 2
-| Protect 8 peers with the lowest minimum ping time
+| link:#rule_2[Protect 8 peers with the lowest minimum ping time]
 | `CNetAddr::m_min_ping_time` (lowest)
 | 
 
 | 3
-| Protect 4 peers that most recently sent us novel transactions
+| link:#rule_3[Protect 4 peers that most recently sent us novel transactions]
 | `CNetAddr::nLastTXTime` (highest)
 a| `CNode::TxRelay::fRelayTxes` (true) +
 `CNode::TxRelay::pfilter` (empty) +
 `CNode::nTimeConnected` (highest)
 
 | 4
-| Protect up to 8 block-relay only peers that have sent novel blocks
+| link:#rule_4[Protect up to 8 block-relay only peers that have sent novel blocks]
 | `CNode::TxRelay::fRelayTxes` (false)
 a| `CNode::nLastBlockTime` (highest) +
 `HasAllDesirableServiceFlags()` (true) +
 `CNode::nTimeConnected` (highest)
 
 | 5
-| Protect 4 peers that most recently sent us novel blocks
+| link:#rule_5[Protect 4 peers that most recently sent us novel blocks]
 | `CNode::nLastBlockTime` (highest)
 a| `HasAllDesirableServiceFlags()` (true) +
 `CNode::nTimeConnected` (highest)
 
 | 6
-| Protect up to 1/4 peers connected via the onion service
+| link:#rule_6[Protect up to 1/4 peers connected via the onion service]
 | `CNode::m_inbound_onion` (true)
 a| `CNode::nTimeConnected` (highest)
 
 | 7
-| Any remaining slots of the 1/4 peers connected, or at least 2 additional slots, are allocated to protect localhost peers
+| link:#rule_7[Any remaining slots of the 1/4 peers connected, or at least 2 additional slots, are allocated to protect localhost peers]
 | `CNetAddr::IsLocal()` (true)
 a| `CNode::nTimeConnected` (highest)
 
 | 8
-| Protect the remaining peers until completing half of them all, prioritizing those with longest uptime
+| link:#rule_8[Protect the remaining peers until completing half of them all, prioritizing those with longest uptime]
 | `CNode::nTimeConnected` (highest)
 |
 
 | 9
-| Consider only the peers preferred for eviction to be disconnected
+| link:#rule_9[Consider only the peers preferred for eviction to be disconnected]
 | `CNode::m_prefer_evict` (true)
 |
 
 | 10
-| Identify the network group with the most connections and evict the youngest member
+| link:#rule_10[Identify the network group with the most connections and evict the youngest member]
 | `CNetAddr::GetGroup()` (with the most connections)
 | `CNode::nTimeConnected` (lowest)
 
