@@ -209,21 +209,21 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
 }
 ----
 
-If the field value is 0x00 (`false`), no `INV` messages or `TX` messages announcing new transactions should be sent to this peer until it sends a `FILTERLOAD` message or `FILTERCLEAR` message. If the relay field is not present or is set to 0x01, this peer wants `INV` messages and `TX` messages announcing new transactions (no change in protocol behaviour).
+If the field value is 0x00 (`false`), no `INV` messages or `TX` messages announcing new transactions https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L4479[should be sent to this peer] until it sends a `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3721[FILTERLOAD]` message or `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3765[FILTERCLEAR]` message. If the relay field is not present or is set to 0x01, this peer wants `INV` messages and `TX` messages https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L2451[announcing new transactions] (no change in protocol behaviour).
 
-The peer connections with `fRelayTxes` as `true` will be priorized to be protected.
+The peer connections with `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.h#L562[fRelayTxes]` as `true` https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L871[will be priorized to be protected].
 
-The next field is the `fBloomFilter`. This field has the value `true` if the peer has the Bloom filter defined (stored in `pfilter`). Otherwise, the value is `false`.
+The next field is the `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.h#L1279[fBloomFilter]`. This field has the value `true` if the peer has the Bloom filter defined (stored in `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.h#L563[pfilter]`). Otherwise, the value is `false`.
 
-To set a Bloom filter the remote peer must send a `FILTERLOAD` message. Upon receiving a `FILTERLOAD` command, the node will immediately restrict the broadcast transactions it announces (in `INV` packets) to transactions matching the filter.
+https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3710[To set a Bloom filter] the remote peer must send a `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L167[FILTERLOAD]` message. Upon receiving a `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L167[FILTERLOAD]` command, the node will immediately restrict the transactions it announces (in `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L96[INV]` packets) to https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L4553[transactions matching the filter].
 
-Other messages related to Bloom Filters are `FILTERADD` and `FILTERCLEAR`. +
-`FILTERADD` adds the provided data to the connections current filter without requiring a completely new one to be set. +
-`FILTERCLEAR` deletes the current filter and goes back to regular usage.
+Other messages related to Bloom Filters are `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L175[FILTERADD]` and `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L183[FILTERCLEAR]`. +
+`FILTERADD` https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3743[adds the provided data to the current filter] without requiring a completely new one to be set. +
+`FILTERCLEAR` https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3764[deletes the current filter] and goes back to regular usage.
 
-The peer connections with empty Bloom Filters will be priorized to be protected. The idea is to prioritize connections to full nodes instead to SPV or other light nodes.
+The peer connections with https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L872[empty Bloom Filters will be priorized] to be protected. The idea is to prioritize connections to full nodes instead to SPV or other light nodes.
 
-If none of the above fields can be used in evaluation, `nTimeConnected` will decide. The 4 peers that have been connected the longest will be protected. 
+If none of the above fields can be used in evaluation, `nTimeConnected` will be used. The 4 peers that https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L873[have been connected the longest] will be protected. 
 
 [source,c++]  
 ----
@@ -236,16 +236,18 @@ static bool CompareNodeTXTime(const NodeEvictionCandidate &a, const NodeEviction
 }
 ----
 
-// Rule 4
-The next rule is to protect up to 8 block-relay only peers that have sent novel blocks to the node. It is done by picking out the potential block-relay only peers, and then sorting them by last block time.
+[[rule_4]]
+=== Rule 4: Protect up to 8 block-relay only peers that have sent novel blocks
 
-The function starts by prioritizing pairs that have the `fRelayTxes` field set to false, since they do not relay transaction.
+The next rule is to https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L947[protect up to 8 block-relay only peers that have sent novel blocks] to the node. It is done by picking out the potential block-relay only peers, and then sorting them by last block time.
 
-So, for peers that have the same `fRelayTxes` value the `nLastBlockTime` field is used to make the comparison. This field is updated in the `PeerManagerImpl::ProcessBlock(...)` method, when a new block is processed.
+The function starts by prioritizing peers that https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L879[have the `fRelayTxes` field set to false], since they do not relay transaction.
+
+So, for peers that have the same `fRelayTxes` value the `nLastBlockTime` field is used to https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L880[make the comparison]. This field is updated in the `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L2323[PeerManagerImpl::ProcessBlock(...)]` method, when a https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L2328[new block is processed].
 
 Each connected peer has this field, which is the UNIX epoch time of the last block received from the peer that the node had not yet seen (for example, not yet received from another peer). The field is updated only after the block has passed the preliminary validity checks and has been saved to disk, even if the node does not connect the block or it eventually the block connection fails. 
 
-If some peers has the same `nLastBlockTime` (haven't sent blocks yet), the ones that have all desirable services flags will be prioritized to be protected. These flags are the NODE_NETWORK, NODE_WITNESS and, if the IBD is already completed, NODE_NETWORK_LIMITED.
+If some peers has the same `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.h#L590[nLastBlockTime]` (haven't sent blocks yet), the ones that https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.cpp#L127[have all desirable services flags] will be https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L881[prioritized to be protected]. These flags are the https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L276[NODE_NETWORK], https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L283[NODE_WITNESS] and, if the IBD is already completed, https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L290[NODE_NETWORK_LIMITED].
 
 [source,c++]  
 ----
@@ -257,13 +259,13 @@ ServiceFlags GetDesirableServiceFlags(ServiceFlags services) {
 }
 ----
 
-NODE_NETWORK means that the node can serve the complete block chain. It is currently set by all Bitcoin Core non pruned nodes and is unset by SPV clients or other light clients.
+https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L276[NODE_NETWORK] means that the node can serve the complete block chain. It is currently https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/init.cpp#L723[set by all Bitcoin Core non pruned nodes] and is https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/init.cpp#L1585[unset by SPV clients or other light clients].
 
-NODE_WITNESS indicates that a node can be asked for blocks and transactions including witness data.
+https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L283[NODE_WITNESS] indicates that a node can be asked for blocks and transactions https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/init.cpp#L1598[including witness data].
 
-NODE_NETWORK_LIMITED means the same as NODE_NETWORK with the limitation of only serving the last 288 (2 day) blocks. https://github.com/bitcoin/bips/blob/master/bip-0159.mediawiki[BIP 159] details this implementation.
+https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L290[NODE_NETWORK_LIMITED] means the same as https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L276[NODE_NETWORK] with the limitation of only serving the https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L121[last 288 (2 day) blocks]. https://github.com/bitcoin/bips/blob/master/bip-0159.mediawiki[BIP 159] details this implementation.
 
-Finally, if all there are peers with the same value for all those fields, peers that have been connected the longest will be prioritized.
+Finally, if all there are peers with the same value for all those fields, peers that https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L882[have been connected the longest] will be prioritized.
 
 [source,c++]  
 ----
@@ -276,8 +278,10 @@ static bool CompareNodeBlockRelayOnlyTime(const NodeEvictionCandidate &a, const 
 }
 ----
 
-// Rule 5
-The next rule is to protect 4 nodes that most recently sent us novel blocks. An attacker cannot manipulate this metric without performing useful work.
+[[rule_5]]
+=== Rule 5: Protect 4 peers that most recently sent us novel blocks
+
+The next rule is to https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L952[protect 4 nodes that most recently sent us novel blocks]. An attacker cannot manipulate this metric without performing useful work.
 
 The most relevant field used to validate this rule is the `nLastBlockTime`, which has already been mentioned. But it is common for a node to have many peers which have not yet relayed a block, so the `fRelevantServices` and `nTimeConnected` work as a fallback.
 
