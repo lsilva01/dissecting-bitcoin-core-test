@@ -1,7 +1,7 @@
 [[evicting_outgoing_connection]]
 == Evicting An Outgoing Connection
 
-Until PR #11490, there was no rotation of outbound peers. If an outbound peer stopped serving blocks for the node or was on a consensus-incompatible chain with less work than the tip of the node (but otherwise valid headers), then the node would never disconnect that peer, even though that peer was using one of our 8 outbound connection slots.
+Until https://github.com/bitcoin/bitcoin/pull/11490[PR #11490], there was no rotation of outbound peers. If an outbound peer stopped serving blocks for the node or was on a consensus-incompatible chain with less work than the tip of the node (but otherwise valid headers), then the node would never disconnect that peer, even though that peer was using one of our 8 outbound connection slots.
 
 Because the node relies on the outbound peers to find an honest node to reach consensus, allowing an incompatible peer to occupy one of those slots is undesirable, particularly if it is possible for all such slots to be occupied by such peers. 
 
@@ -41,21 +41,21 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, ...)
 }
 ----
 
-The `CChainState::IsInitialBlockDownload()` method returns true if the node is still downloading new blocks from the peers. It is done by checking the `fImporting` and `fReindex` values. These variables are defined in `ThreadImport(…​)` to load the blocks at startup. `CImportingNow` (used in that thread) sets `fImporting` to true when created and to false when destroyed. `fReindex` is usually defined by the user through `-reindex` params.
+The `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/validation.cpp#L1192[CChainState::IsInitialBlockDownload()]` method returns true if the node is still downloading new blocks from the peers. It is done by https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/validation.cpp#L1192[checking the `fImporting` and `fReindex` values]. These variables are defined in `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/node/blockstorage.cpp#L495[ThreadImport(…​)]` to load the blocks at startup. `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/node/blockstorage.cpp#L481[CImportingNow]` (used in that thread) https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/node/blockstorage.cpp#L485[sets `fImporting` to true] when created and https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/node/blockstorage.cpp#L491[to false] when destroyed. `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/node/blockstorage.cpp#L23[fReindex]` is usually https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/init.cpp#L1307[defined by the user] through `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/init.cpp#L407[-reindex]` params.
 
 The other criteria to check whether the IBD is complete or not are:
 
-. Check the `CChain::Tip()` value. This method returns the index entry for the tip of the chain, or `nullptr` if none, which means the IBD is still running.
+. Check the `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/chain.h#L403[CChain::Tip()]` value. This method returns the https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/chain.h#L404[index entry for the tip of the chain, or `nullptr` if none], which means the IBD is still running.
 
-. If the chain work for the last block is less than minimum chain work, then the IBD is still running. This concept was introduced in the https://github.com/bitcoin/bitcoin/pull/9053[PR #9053] and it replaced the checkpoints and is the known amount of work in the chain for the network at the time of software release.
+. If the chain work for the last block is https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/validation.cpp#L1192[less than the minimum chain work], then the IBD is still running. This concept was introduced in the https://github.com/bitcoin/bitcoin/pull/9053[PR #9053] and it replaced the checkpoints and is the known amount of work in the chain for the network at the time of software release.
 
-. If the time of the last block (`nTime`) is earlier than the previous 24 hours from the current time, the IBD is still running.
+. If the time of the last block (`nTime`) is https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/validation.cpp#L1207[earlier than the previous 24 hours from the current time], the IBD is still running.
 
-If none of these criteria are true, the IBD is considered completed and this result is cached for later verification.
+If none of these criteria are true, the IBD is considered completed and this result is https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/validation.cpp#L1210[cached for later verification].
 
-`nCount` is the size of the `HEADER` message. It usually has 2,000 headers (`MAX_BLOCKS_TO_ANNOUNCE`). If the size is less than that number, then there is no more headers to fetch from the peer that sent the message. So it is safe to assess whether the peer has sufficient chain work.
+`https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L1894[nCount]` is the size of the `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L127[HEADER]` message. It usually has 2,000 headers (`https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L101[MAX_BLOCKS_TO_ANNOUNCE]`). If the size is less than that number, then there is no more headers to fetch from the peer that sent the message. So it is safe to assess whether the peer has sufficient chain work.
 
-If the peer has too little work on their headers chain to help the synchronization, it will be disconnected. Note that the peer's tip is compared to `nMinimumChainWork` (instead of `m_chainman.ActiveChain().Tip()`) because the block download will not start until the node has a headers chain that has at least the `nMinimumChainWork`.
+If the peer https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L2041[has too little work on their headers chain] to help the synchronization, https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L2052[it will be disconnected]. Note that the peer's tip is compared to `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/validation.cpp#L140[nMinimumChainWork]` (instead of `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/chain.h#L403[m_chainman.ActiveChain().Tip()]`) because the block download will not start until the node has a headers chain that has https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/init.cpp#L901-L903[at least the `nMinimumChainWork`].
 
 [[disconnection_bad_slow]]
 == Disconnection of outbound peers on bad/slow chains
