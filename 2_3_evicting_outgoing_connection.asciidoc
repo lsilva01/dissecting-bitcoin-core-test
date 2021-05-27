@@ -60,7 +60,7 @@ If the peer https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4
 [[disconnection_bad_slow]]
 == Disconnection of outbound peers on bad/slow chains
 
-The 4 fist peers that gave us a valid connecting header, their chain tips have at least as much work as the node and the connection type is outbound full relay will not be subject to eviction under the bad/lagging chain logic.
+The https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L2063[4 fist peers] that give the node a valid connecting header https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L2065-L2066[will not be subject to eviction] under the bad/lagging chain logic. These chain tips of these peers should have at least as much work as the node and the connection type should be outbound full relay.
 
 The reason for this protection is to prevent excessive network topology changes as a result of this algorithm, while still ensuring that the node have a reasonable number of nodes not known to be on bogus chains.
 
@@ -79,9 +79,9 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, ...)
 }
 ----
 
-The limit of the peers that will be protected is defined by the constant `MAX_OUTBOUND_PEERS_TO_PROTECT_FROM_DISCONNECT`, which is currently 4.
+The limit of the peers that will be protected is defined by the constant `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L54[MAX_OUTBOUND_PEERS_TO_PROTECT_FROM_DISCONNECT]`, which is currently 4.
 
-To store which peers are protected and to implement the eviction logic, the `ChainSyncTimeoutState` struct was created.
+To store which peers are protected and to implement the eviction logic, the `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L640[ChainSyncTimeoutState]` struct was created.
 
 [source,c++]  
 ----
@@ -93,13 +93,17 @@ struct ChainSyncTimeoutState {
 };
 ----
 
-This eviction logic is implemented in `PeerManagerImpl::ConsiderEviction(...)` method. Firslty, it checks the peer is not protected, the connection type is outbound full relay and the node has started headers synchronization with this peer.
+This eviction logic is implemented in `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3933[PeerManagerImpl::ConsiderEviction(...)]` method. Firslty, it https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3940[checks] if the peer is not protected, the connection type is outbound full relay and the node has started headers synchronization with this peer.
 
-Then, it checks if the peer's tip is greater than the node. If so, there is no need to evict the peer and the `CNodeState::m_chain_sync` is restored to its default value and the timeout is set to 0. Otherwise, it means that the best block known by this peer is behind the node's tip and a timeout of 20 minutes (CHAIN_SYNC_TIMEOUT) is set to check the status of the peer again.
+Then, it checks if the https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3947[peer's tip is greater than the node's one]. If so, there is no need to evict the peer and the `CNodeState::m_chain_sync` is restored to its https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3949-L3951[default value] and the timeout is set to 0. Otherwise, it means that the best block known by this peer is behind the node's tip and a https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3958[timeout] of 20 minutes (https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L56[CHAIN_SYNC_TIMEOUT]) is set to check the status of the peer again.
 
-When this timeout expires and the peer's best block is still behind the node's tip, so the node sends `GETHEADERS` message and waits another 2 minutes (HEADERS_RESPONSE_TIME) for the reply.
+The current node's chain tip https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3959[is assigned] to `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L644[CNodeState::ChainSyncTimeoutState::m_work_header]`. This field is used to verify that the peer https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3947[is sufficiently synchronized at some point] before the timeout is reached. If so, https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3949-L3951[peer will not be evicted].
 
-If after that time, the peer's best-known block still has less work than the node's tip, it is disconnected.
+When the https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3961[timeout expires] and the peer’s best block is still behind the node’s tip, the https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3972[node sends a `GETHEADERS` message] and https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3980[waits] another 2 minutes (https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3974[HEADERS_RESPONSE_TIME]) for the reply. 
+
+The `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L646[CNodeState::ChainSyncTimeoutState::m_sent_getheaders]` field indicates whether the message `https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/protocol.h#L117[GETHEADERS]` has already been sent or not. 
+
+If after that time, the peer's best-known block still has less work than the node's tip, https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net_processing.cpp#L3968[it is disconnected].
 
 Note that this logic does not require the peers to be on the same chain as the node, to prevent accidental partitioning of the network in the event of a chain split. If the peers are ever on a more work chain than the node's tip, then the node will download and validate it as usual.
 
