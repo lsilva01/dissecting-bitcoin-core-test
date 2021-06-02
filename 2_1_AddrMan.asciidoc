@@ -510,6 +510,71 @@ bool CAddrMan::Add_(const CAddress& addr, const CNetAddr& source, int64_t nTimeP
 
 === Connecting to an Address
 
+`CAddrMan ::Select_ (bool newOnly)` returns a random address that exists in the `tried` or `new` table. If the parameter `newOnly` is true, the address will be taken only from the table `new`. This method is called in `CConnman ::ThreadOpenConnections`, when the node looks for new addresses to connect to and test.
+
+[source,c++]  
+----
+void CConnman::ThreadOpenConnections(const std::vector<std::string> connect)
+{
+    // ...
+    CAddrInfo addr;
+
+    if (fFeeler) {
+        addr = addrman.SelectTriedCollision();
+
+        if (!addr.IsValid()) {
+            addr = addrman.Select(true);
+        } else if (AlreadyConnectedToAddress(addr)) {
+            addrman.Good(addr);
+            addr = addrman.Select(true);
+        }
+    } else {
+        addr = addrman.Select();
+    }
+    // ...
+}
+----
+
+For outbound connection, the node calls `addrman.Select()` to retrieve a random address to connect to. +
+`CAddrMan::Select_(bool newOnly)` is relatively simple. It has 50% chance for choosing between tried and new table entries and randomly selects one of them. If the entry value is -1, it has no address allocated, so it continues looping until the address is different from -1.
+
+But there is one more step before returning the selected address. It calls `CAddrInfo::GetChance()` to lower the priority of very recent attempts away and after each failed attempt. After the 8th attempt, it start starts to avoid this address.
+
+If the address does not pass `CAddrInfo ::GetChance()`, the method returns to the beginning of the loop and randomly selects a new address.
+
+[source,c++]  
+----
+CAddrInfo CAddrMan::Select_(bool newOnly)
+{
+    // ...
+    if (!newOnly &&
+       (nTried > 0 && (nNew == 0 || insecure_rand.randbool() == 0))) {
+        double fChanceFactor = 1.0;
+        while (1) {
+            int nKBucket = insecure_rand.randrange(ADDRMAN_TRIED_BUCKET_COUNT);
+            int nKBucketPos = insecure_rand.randrange(ADDRMAN_BUCKET_SIZE);
+            while (vvTried[nKBucket][nKBucketPos] == -1) {
+                nKBucket = (nKBucket + insecure_rand.randbits(ADDRMAN_TRIED_BUCKET_COUNT_LOG2)) % ADDRMAN_TRIED_BUCKET_COUNT;
+                nKBucketPos = (nKBucketPos + insecure_rand.randbits(ADDRMAN_BUCKET_SIZE_LOG2)) % ADDRMAN_BUCKET_SIZE;
+            }
+            int nId = vvTried[nKBucket][nKBucketPos];
+            assert(mapInfo.count(nId) == 1);
+            CAddrInfo& info = mapInfo[nId];
+            if (insecure_rand.randbits(30) < fChanceFactor * info.GetChance() * (1 << 30))
+                return info;
+            fChanceFactor *= 1.2;
+        }
+    }
+    // ...
+}
+----
+
+=== Test-Before-Evict
+
+In the `CConnman ::ThreadOpenConnections` code shown above,it can be seen that there is another logic for feeler connections (`if (fFeeler)`).
+
+When the node receives the `VERSION` message from the peer, it considers the connection is successfully and calls `m_addrman.Good()` to update some fields (`CAddrInfo::nLastSuccess`, `CAddrInfo::nLastTry` and `CAddrInfo::nAttempts`) and to move the address to the `tried` table.
+
 [[references]]
 === References
 
