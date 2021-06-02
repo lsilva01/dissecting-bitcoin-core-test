@@ -174,10 +174,12 @@ However, increasing the table sizes actually makes the EREBUS attack much easier
 This is a case of conflicting requirements, where the tradeoff between both has to be well evaluated.
 ===============================
 
+[[current_implementation]]
 === Current Implementation
 
 There are some classes that handle the network connection to other peers: `CNetAddr`, `CService`, `CAddress`, `CAddrInfo` and `CAddrMan`. This is not an exhaustive list, but these are the relevant ones in this context.
 
+[[cnetaddr]]
 ==== `CNetAddr`
 
 `CNetAddr` is the network address itself. Two important fields in this class is the `m_addr` and `m_net`. +
@@ -209,6 +211,7 @@ class CNetAddr
 }
 ----
 
+[[cservice]]
 ==== `CService`
 
 `CService` is the combination of a network address (`CNetAddr`) and a (TCP) port. It inherits all members from `CNetAddr` and adds an `uint16_t port` field.
@@ -235,6 +238,7 @@ class CService : public CNetAddr
 
 These two classes `CNetAddr` and `CService` were created in the https://github.com/bitcoin/bitcoin/pull/735[PR #735] to refactor class `CAddress`. 
 
+[[caddress]]
 ==== `CAddress`
 
 `CAddress` is a class derived from `CService`. It adds two information about the peer: the `uint32_t nTime` and `ServiceFlags nServices`.
@@ -265,6 +269,7 @@ public:
 };
 ----
 
+[[caddrinfo]]
 ==== `CAddrInfo`
 
 `CAddrInfo` stores statistics about a `CAddress`, such as the last successful connection, new connection attempts since last successful attempt, reference count in `new` table, if the address is in `tried` or `new` table and so others.
@@ -297,6 +302,7 @@ public:
 }
 ----
 
+[[caddrman]]
 ==== `CAddrMan`
 
 `CAddrMan` is the address manager. It handles adding new address, resolving collisions, moving address between tables, persisting and storing the `new` and `tried` tables and much more.
@@ -360,6 +366,7 @@ class CAddrMan
 image::images/chapter_2_1/network_classes.svg[]
 [NetworkClasses, align="center"]
 
+[[adding_new_address]]
 === Adding New Address
 
 New adresses are added to AddrMan when:
@@ -510,6 +517,7 @@ bool CAddrMan::Add_(const CAddress& addr, const CNetAddr& source, int64_t nTimeP
 }
 ----
 
+[[connecting_to_an_address]]
 === Connecting to an Address
 
 `CAddrMan ::Select_ (bool newOnly)` returns a random address that exists in the `tried` or `new` table. If the parameter `newOnly` is true, the address will be taken only from the table `new`. This method is called in `CConnman ::ThreadOpenConnections`, when the node looks for new addresses to connect to and test.
@@ -572,7 +580,7 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
     // ...
 }
 ----
-
+[[test-vefore-evict]]
 === Test-Before-Evict
 
 In the `CConnman ::ThreadOpenConnections` code shown above,it can be seen that there is another logic for feeler connections (`if (fFeeler)`).
