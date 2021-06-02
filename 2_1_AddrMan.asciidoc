@@ -54,6 +54,8 @@ Another small side advantage of _test-before-evict_ is that https://github.com/b
 
 Addresses are only cleared https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/addrman.cpp#L630[one at a time] from the test buffer and since https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.cpp#L1966-L1969[this is a feeler connection], so an attacker is forced https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.h#L54[to wait at least two minutes] to insert a new address into the `tried` table after filling up the test buffer. This rate limits an attacker attempting to launch an eclipse attack.
 
+This countermeasure was implemented in the https://github.com/bitcoin/bitcoin/pull/9037[PR 9037].
+
 [[eclipse_c1]]
 === Countermeasure 1: Deterministic random eviction
 
@@ -438,7 +440,7 @@ int CAddrInfo::GetBucketPosition(const uint256 &nKey, bool fNew, int nBucket) co
 }
 ----
 
-If the address position collides with an entry already filled in, the method `CAddrInfo::IsTerrible()` is used to decide if the old address will be evicted or not.
+If the address position collides with an entry already populated, the method `CAddrInfo::IsTerrible()` is used to decide if the old address will be evicted or not.
 
 [source,c++]  
 ----
@@ -518,7 +520,9 @@ void CConnman::ThreadOpenConnections(const std::vector<std::string> connect)
 {
     // ...
     CAddrInfo addr;
-
+    // ...
+    addrman.ResolveCollisions();
+    // ...
     if (fFeeler) {
         addr = addrman.SelectTriedCollision();
 
@@ -574,6 +578,76 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
 In the `CConnman ::ThreadOpenConnections` code shown above,it can be seen that there is another logic for feeler connections (`if (fFeeler)`).
 
 When the node receives the `VERSION` message from the peer, it considers the connection is successfully and calls `m_addrman.Good()` to update some fields (`CAddrInfo::nLastSuccess`, `CAddrInfo::nLastTry` and `CAddrInfo::nAttempts`) and to move the address to the `tried` table.
+
+However, if this address maps to an entry in `tried` table that is already populated, it will be inserted in another table called `m_tried_collisions` and the `tried` table will remain with the old address for a while.
+
+[source,c++]  
+----
+void CAddrMan::Good_(const CService& addr, bool test_before_evict, int64_t nTime)
+{
+    // ...
+    CAddrInfo* pinfo = Find(addr, &nId);
+    // ...
+    info.nLastSuccess = nTime;
+    info.nLastTry = nTime;
+    info.nAttempts = 0;
+    // ...
+    int tried_bucket = info.GetTriedBucket(nKey, m_asmap);
+    int tried_bucket_pos = info.GetBucketPosition(nKey, false, tried_bucket);
+
+    if (test_before_evict && (vvTried[tried_bucket][tried_bucket_pos] != -1)) {
+        // ...
+        if (m_tried_collisions.size() < ADDRMAN_SET_TRIED_COLLISION_SIZE) {
+            m_tried_collisions.insert(nId);
+        }
+    } else {
+        LogPrint(BCLog::ADDRMAN, "Moving %s to tried\n", addr.ToString());
+        MakeTried(info, nId);
+    }
+}
+----
+
+This table was created to implement the <<eclipse_c3>>. It holds addresses inserted into tried table that collide with existing entries. https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/addrman.cpp#L253[No more than ten addresses] can be in the test buffer at once (defined in https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/addrman.h[ADDRMAN_SET_TRIED_COLLISION_SIZE] constant) and since feeler connections are used to test the collision addresses, it is necessary https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.h#L54[to wait at least two minutes] to test the next. This rate limits an attacker attempting to launch an eclipse attack.
+
+The method `CAddrMan::SelectTriedCollision_()` selects a random element from m_tried_collisions and gets the equivalent address in the `tried` table (the one in the same bucket and position). The method returns the id of this address (called `id_old`) to be tested. 
+
+[source,c++]  
+----
+CAddrInfo CAddrMan::SelectTriedCollision_()
+{
+    // ...
+
+    const CAddrInfo& newInfo = mapInfo[id_new];
+
+    // which tried bucket to move the entry to
+    int tried_bucket = newInfo.GetTriedBucket(nKey, m_asmap);
+    int tried_bucket_pos = newInfo.GetBucketPosition(nKey, false, tried_bucket);
+
+    int id_old = vvTried[tried_bucket][tried_bucket_pos];
+
+    return mapInfo[id_old];
+}
+----
+
+`CAddrMan::ResolveCollisions_()` checks whether any to-be-evicted tried table entries have been tested and if so resolve the collision. The criteria are:
+
+. If the new address is not found in `mapInfo`, it is removed from `m_tried_collisions`.
+
+. If the position in the `tried` bucket is empty, the new address will be inserted there.
+
+. If the new address no longer maps to a valid address, it is removed from `m_tried_collisions`.
+
+. If the old address has successfully connected in last 4 hours, it will be kept and the new one will be removed from `m_tried_collisions`.
+
+. If the old address has attempted to connect and has failed in last 4 hours, give the address at least 60 seconds to successfully connect. If it fails, the new address will replace the existing address in the `tried` table.
+
+. If the collision hasn't been resolved in 40 minutes, the old entry will be evicted anyway.
+
+Every https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.h#L54[2 minutes], if there is no conflicting address, `addrman.Select(true)` is called to initiate a feller connection to an address stored in the `new` table. This implements the <<eclipse_c4>>.
+
+
+
+
 
 [[references]]
 === References
