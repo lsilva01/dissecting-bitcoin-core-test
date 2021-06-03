@@ -93,7 +93,7 @@ The https://github.com/bitcoin/bitcoin/pull/17428[PR #17428] implements this cou
 The https://github.com/bitcoin/bitcoin/issues/17326[issue #17326] has some interesting discussion about this countermeasure implementation.
 
 [[undeployed_eclipse]]
-=== Undeployed (or partially deployed) recommended countermeasures
+=== Undeployed (or partially deployed) countermeasures
 
 [[eclipse_c7]]
 === Countermeasure 7: More outgoing connections

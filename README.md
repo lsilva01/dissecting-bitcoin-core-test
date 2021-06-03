@@ -59,7 +59,7 @@ Proposal: Review and update of the book "Dissection of Bitcoin"
       * [Countermeasure 2: Random selection](2_1_AddrMan.asciidoc#eclipse_c2)
       * [Countermeasure 6: More buckets](2_1_AddrMan.asciidoc#eclipse_c6)
       * [Countermeasure 5: Anchor connections](2_1_AddrMan.asciidoc#eclipse_c5)
-    * [Undeployed (or partially deployed) recommended countermeasures](2_1_AddrMan.asciidoc#undeployed_eclipse)
+    * [Undeployed (or partially deployed) countermeasures](2_1_AddrMan.asciidoc#undeployed_eclipse)
       * [Countermeasure 7: More outgoing connections](2_1_AddrMan.asciidoc#eclipse_c7)
       * [Countermeasure 8: Ban unsolicited ADDR messages](2_1_AddrMan.asciidoc#eclipse_c8)
       * [Countermeasure 9: Diversify incoming connections](2_1_AddrMan.asciidoc#eclipse_c9)
