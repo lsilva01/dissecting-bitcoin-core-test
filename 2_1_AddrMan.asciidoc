@@ -657,6 +657,7 @@ CAddrInfo CAddrMan::SelectTriedCollision_()
 
 Every https://github.com/bitcoin/bitcoin/blob/6d1d33d33491a98bb0dbf64ea7e4743200e71474/src/net.h#L54[2 minutes], if there is no conflicting address, `addrman.Select(true)` is called to initiate a feller connection to an address stored in the `new` table. This implements the <<eclipse_c4>>.
 
+[[responding_getaddr_messages]]
 === Responding to `GETADDR` Messages
 
 The `GETADDR` message requests an `ADDR` or `ADDRv2` message from the receiving node.
@@ -689,6 +690,7 @@ void CAddrMan::GetAddr_(std::vector<CAddress>& vAddr, size_t max_addresses, size
 }
 ----
 
+[[summary]]
 === Summary
 
 Bitcoin Core tracks and stores addresses using a component known as address manager or AddrMan, implemented in the class `CAddrMan`.
