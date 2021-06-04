@@ -15,3 +15,36 @@ The commit https://github.com/bitcoin/bitcoin/commit/c7dd9ff71b9c2e62fa7ecfb37ee
                              
 === Starting the node
 
+The `CConnman` and all the network processes are started in `AppInitMain(...)`, which is basically the main function of the application. When the node shuts down, connections are securely closed by `CConnman`.
+
+[source,c++]  
+----
+bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
+{
+    // ...
+    assert(!node.connman);
+    node.connman = std::make_unique<CConnman>(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max()), *node.addrman, args.GetBoolArg("-networkactive", true));
+    // ...
+    if (!node.connman->Start(*node.scheduler, connOptions)) {
+        return false;
+    }
+    // ...
+}
+
+void Interrupt(NodeContext& node)
+{
+    // ...
+    if (node.connman)
+        node.connman->Interrupt();
+    // ...
+}
+
+void Shutdown(NodeContext& node)
+{
+    // ...
+    if (node.connman) node.connman->Stop();
+    // ...
+    node.connman.reset();
+    // ...
+}
+----
