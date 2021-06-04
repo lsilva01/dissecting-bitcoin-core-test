@@ -48,3 +48,8 @@ void Shutdown(NodeContext& node)
     // ...
 }
 ----
+
+The `node` variable refers to the `https://github.com/bitcoin/bitcoin/blob/c7dd9ff71b9c2e62fa7ecfb37ee7a5841ad67ecc/src/node/context.h#L39[struct NodeContext]`. It is a struct that contains references to chain state and connection state. This is used by the init function, RPC, GUI and test code to pass object references around without needing to declare the same variables and parameters repeatedly, or to use globals. The struct is defined in `https://github.com/bitcoin/bitcoin/blob/c7dd9ff71b9c2e62fa7ecfb37ee7a5841ad67ecc/src/node/context.h[src/node/context.h]`.
+
+Before this struct was created, the global variable `g_conman` was used to manage the connection. But using global variables reduces the modularity and flexibility of the program, so the https://github.com/bitcoin/bitcoin/pull/16839[PR #16839] has gotten rid of the some global variables and has made `g_conman` a NodeContext member (now called `https://github.com/bitcoin/bitcoin/blob/c7dd9ff71b9c2e62fa7ecfb37ee7a5841ad67ecc/src/node/context.h#L43[connman]`).
+
