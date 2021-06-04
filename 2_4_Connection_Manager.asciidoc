@@ -3,7 +3,7 @@
 
 `CConnman` class was created in the https://github.com/bitcoin/bitcoin/pull/8085[PR #8085] to to encapsulate P2P connections. Today, this class manages network layer logic.
 
-It creates sockets for listening for incoming connections and binds them to a specific address and port. It loads the `peer.dat` file to connect to addresses previously seen or already connected to. It also loads the `anchors.dat` to establish block-only connections. It starts the network threads. It handles the interruption of the network and the node shutdown.
+It creates sockets for listening for incoming connections and binds them to addresses and ports. It loads the `peer.dat` file to connect to addresses previously seen or already connected to. It also loads the `anchors.dat` to establish block-only connections. It starts the network threads. It handles the interruption of the network and the node shutdown.
 
 This text describes the Network Layer and and how Connman works.
 
@@ -13,7 +13,7 @@ The commit https://github.com/bitcoin/bitcoin/commit/c7dd9ff71b9c2e62fa7ecfb37ee
  cd bitcoin
  git checkout -b text_branch c7dd9ff71b
                              
-=== Starting the node
+=== Starting The Node
 
 The `CConnman` and all the network processes are started in `AppInitMain(...)`, which is basically the main function of the application. When the node shuts down, connections are securely closed by `CConnman`.
 
@@ -53,3 +53,17 @@ The `node` variable refers to the `https://github.com/bitcoin/bitcoin/blob/c7dd9
 
 Before this struct was created, the global variable `g_conman` was used to manage the connection. But using global variables reduces the modularity and flexibility of the program, so the https://github.com/bitcoin/bitcoin/pull/16839[PR #16839] has gotten rid of the some global variables and has made `g_conman` a NodeContext member (now called `https://github.com/bitcoin/bitcoin/blob/c7dd9ff71b9c2e62fa7ecfb37ee7a5841ad67ecc/src/node/context.h#L43[connman]`).
 
+=== Starting The Connections
+
+`CConnman::Start()` initiates all the network process and keeps them running. The first step is creating sockets for listening for incoming connections. By default, the sockets will be binded to 0.0.0.0:8333 (IPv4), [::]:8333 (IPv6) and 127.0.0.1:8334 (as a proxy for onion network). However, the user can define an different address passing it through the `-bind` or `-whitebind` argument when stating the node. This is done by `CConnman::InitBinds()`.
+
+.Difference between `-bind` and `-whitebind`
+[NOTE]
+===============================
+`-whitebind` option which works like `-bind`, except peers connecting to it are whitelisted (allowing a separate listen port for trusted connections). It was implemented in the https://github.com/bitcoin/bitcoin/pull/4378[PR #4378].
+===============================
+
+// Bind code
+
+Next, if the user also has specified `-seednode`, `ADDR_FETCH` connections is created to retrieve the addresses.
+// Explain AddAddrFetch
