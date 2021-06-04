@@ -1,0 +1,17 @@
+[[addrman]]
+== ConnMan
+
+`CConnman` class was created in the https://github.com/bitcoin/bitcoin/pull/8085[PR #8085] to to encapsulate P2P connections. Today, this class manages network layer logic.
+
+It creates sockets for listening for incoming connections and binds them to a specific address and port. It loads the `peer.dat` file to connect to addresses previously seen or already connected to. It also loads the `anchors.dat` to establish block-only connections. It starts the network threads. It handles the interruption of the network and the node shutdown.
+
+This text describes the Network Layer and and how Connman works.
+
+The commit https://github.com/bitcoin/bitcoin/commit/c7dd9ff71b9c2e62fa7ecfb37ee7a5841ad67ecc[c7dd9ff71b] can be used as a reference to the https://github.com/bitcoin/bitcoin/tree/c7dd9ff71b9c2e62fa7ecfb37ee7a5841ad67ecc[project's codebase] at the time of writing.
+
+ git clone https://github.com/bitcoin/bitcoin.git
+ cd bitcoin
+ git checkout -b text_branch c7dd9ff71b
+                             
+=== Starting the node
+
