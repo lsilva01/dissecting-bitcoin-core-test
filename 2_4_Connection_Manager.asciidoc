@@ -111,7 +111,38 @@ Next, if the user also has specified `-seednode`, an `ADDR_FETCH` connection is 
 
 `ProcessAddrFetch()` is also once called if the node is started with `connect=<ip>`. The reason is that seeds can also be inserted in  `m_addr_fetches` in `CConnman::ThreadDNSAddressSeed()` if the node is behind a proxy or if the seeder does not support service bit filtering over DNS.
 
-Then, the node 
+Then, the `CConnman` loads addresses from `peers.dat`. This is done by by `CAddrDB::Read(CAddrMan& addr)`, which deserializes the contents of the file and allocates them to `CAddrMan& addr`. The sole purpose of `CAddrDB` is to write and read the (IP) address database (`peers.dat`).
 
+[source,c++]  
+----
+// src/net.cpp
+bool CConnman::Start(...)
+{
+    // ...
+    CAddrDB adb;
+    if (adb.Read(addrman))
+        LogPrintf("Loaded %i addresses from peers.dat  %dms\n", addrman.size(), GetTimeMillis() - nStart);
+    else {
+        addrman.Clear(); // Addrman can be in an inconsistent state after failure, reset it
+        LogPrintf("Recreating peers.dat\n");
+        DumpAddresses();
+    }
+    // ...
+}
 
+// src/addrdb.cpp
+CAddrDB::CAddrDB()
+{
+    pathAddr = gArgs.GetDataDirNet() / "peers.dat";
+}
 
+bool CAddrDB::Write(const CAddrMan& addr)
+{
+    return SerializeFileDB("peers", pathAddr, addr);
+}
+
+bool CAddrDB::Read(CAddrMan& addr)
+{
+    return DeserializeFileDB(pathAddr, addr);
+}
+----
