@@ -64,6 +64,54 @@ Before this struct was created, the global variable `g_conman` was used to manag
 ===============================
 
 // Bind code
+[source,c++]  
+----
+bool CConnman::Start(CScheduler& scheduler, const Options& connOptions)
+{
+    Init(connOptions);
 
-Next, if the user also has specified `-seednode`, `ADDR_FETCH` connections is created to retrieve the addresses.
-// Explain AddAddrFetch
+    if (fListen && !InitBinds(connOptions.vBinds, connOptions.vWhiteBinds, connOptions.onion_binds)) {
+        if (clientInterface) {
+            clientInterface->ThreadSafeMessageBox(
+                _("Failed to listen on any port. Use -listen=0 if you want this."),
+                "", CClientUIInterface::MSG_ERROR);
+        }
+        return false;
+    }
+    // ...
+}
+----
+
+[source,c++]  
+----
+bool CConnman::InitBinds(...)
+{
+    // ...
+    for (const auto& addrBind : binds) {
+        fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR), NetPermissionFlags::None);
+    }
+    for (const auto& addrBind : whiteBinds) {
+        fBound |= Bind(addrBind.m_service, (BF_EXPLICIT | BF_REPORT_ERROR), addrBind.m_flags);
+    }
+    if (binds.empty() && whiteBinds.empty()) {
+        struct in_addr inaddr_any;
+        inaddr_any.s_addr = htonl(INADDR_ANY);
+        struct in6_addr inaddr6_any = IN6ADDR_ANY_INIT;
+        fBound |= Bind(CService(inaddr6_any, GetListenPort()), BF_NONE, NetPermissionFlags::None);
+        fBound |= Bind(CService(inaddr_any, GetListenPort()), !fBound ? BF_REPORT_ERROR : BF_NONE, NetPermissionFlags::None);
+    }
+    // ...
+}
+----
+
+Next, if the user also has specified `-seednode`, an `ADDR_FETCH` connection is created for each seed to retrieve the addresses. +
+`CConnman::AddAddrFetch()` adds the seed to `m_addr_fetches` vector. The method `CConnman::ProcessAddrFetch()` gets the first address of the vector and create the `ADDR_FETCH` connection using `CConnman::OpenNetworkConnection(...)`.
+
+`CConnman::ProcessAddrFetch()` is called uninterruptedly in the `CConnman::ThreadOpenConnections()` thread. The method only stops working when `interruptNet` is triggered, which happens when the node is shut down.
+
+`ProcessAddrFetch()` is also once called if the node is started with `connect=<ip>`. The reason is that seeds can also be inserted in  `m_addr_fetches` in `CConnman::ThreadDNSAddressSeed()` if the node is behind a proxy or if the seeder does not support service bit filtering over DNS.
+
+Then, the node 
+
+
+
