@@ -216,5 +216,50 @@ void CConnman::Interrupt()
 
 With the semaphores and flags defined, the next step is to  sequentially start all the network threads.
 
+=== ThreadSocketHandler
+
+The first thread started is the `ThreadSocketHandler`. The thread's main code is a loop that runs three functions continuously until interrupted by `interruptNet` flag.
+
+[source,c++]  
+----
+void CConnman::ThreadSocketHandler()
+{
+    while (!interruptNet)
+    {
+        DisconnectNodes();
+        NotifyNumConnectionsChanged();
+        SocketHandler();
+    }
+}
+----
+
+`CConnman::DisconnectNodes()` first checks if the network is active via the `fNetworkActive` property, which is `true` by default and can be changed by the RPC command `setnetworkactive`, which disables/enables all P2P network activity. If enabled, all connected nodes will have the `CNode::fDisconnect` field changed to true.
+
+`CNode::fDisconnect` is particularly important field. It is used in various parts of the application to disconnect any node that does not comply with the consensus rules.
+
+[source,c++]  
+----
+void CConnman::DisconnectNodes()
+{
+    {
+        LOCK(cs_vNodes);
+
+        if (!fNetworkActive) {
+            // Disconnect any connected nodes
+            for (CNode* pnode : vNodes) {
+                if (!pnode->fDisconnect) {
+                    LogPrint(BCLog::NET, "Network not active, dropping peer=%d\n", pnode->GetId());
+                    pnode->fDisconnect = true;
+                }
+            }
+        }
+        // ...
+    }
+}
+----
+
+Note that before accessing `vNode`, there is a `LOCK(cs_vNodes)`. +
+`std::vector<CNode*> vNodes` is the vector that stores all connected nodes. Its access is protected by the recursive mutex `Note`. +
+
 
 
