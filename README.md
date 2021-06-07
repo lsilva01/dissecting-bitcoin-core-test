@@ -4,9 +4,11 @@ Proposal: Review and update of the book "Dissection of Bitcoin"
 
 ## Brief Contents
 * [Architecture](1_0_Bitcoin_Architecture.asciidoc)
-* [ADDR Relay](2_0_ADDR_relay.asciidoc)
-* [Evicting An Incoming Connection](2_2_evicting_incoming_connection.asciidoc)
-* [Evicting An Outgoing Connection](2_3_evicting_outgoing_connection.asciidoc)
+* Network Layer
+  * [ADDR Relay](2_0_ADDR_relay.asciidoc)
+  * [Evicting An Incoming Connection](2_2_evicting_incoming_connection.asciidoc)
+  * [Evicting An Outgoing Connection](2_3_evicting_outgoing_connection.asciidoc)
+  * [Connection Manager](2_4_Connection_Manager.asciidoc)
 * [Adresses](3_0_bitcoin_address.asciidoc)
 * [Transactions](3_1_transactions.asciidoc)
 * [Serialization](4_0_serialization.asciidoc)
