@@ -314,3 +314,23 @@ void CConnman::DisconnectNodes()
 
 There is a mechanism for assessing whether a CNode is still in use: the `CNode::nRefCount`. This field is incremented via `CNode::AddRef()` when the peer is created, during socket service and message handling. And `CNode::Release()` decreases it. When there are no more references to this `CNode`, it can be safely disconnected.
 
+When `CNode::nRefCount` is 0, the node can be deleted and removed from the disconnected pool `vNodesDisconnected`.
+
+[source,c++]  
+----
+void CConnman::DisconnectNodes()
+{
+    // ...
+    {
+        // ...
+        std::list<CNode*> vNodesDisconnectedCopy = vNodesDisconnected;
+        for (CNode* pnode : vNodesDisconnectedCopy)
+        {
+            if (pnode->GetRefCount() <= 0) {
+                vNodesDisconnected.remove(pnode);
+                DeleteNode(pnode);
+            }
+        }
+    }
+}
+----
