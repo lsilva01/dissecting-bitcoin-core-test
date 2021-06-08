@@ -318,6 +318,13 @@ When `CNode::nRefCount` is 0, the node can be deleted and removed from the disco
 
 [source,c++]  
 ----
+void CConnman::DeleteNode(CNode* pnode)
+{
+    assert(pnode);
+    m_msgproc->FinalizeNode(*pnode);
+    delete pnode;
+}
+// ...
 void CConnman::DisconnectNodes()
 {
     // ...
@@ -334,3 +341,71 @@ void CConnman::DisconnectNodes()
     }
 }
 ----
+
+To delete the node, the message `m_msgproc->FinalizeNode(\*pnode)` is sent to `net_processing.{h,cpp}` region.  +
+The interface `NetEventsInterface* m_msgproc` is implemented by `PeerManager` (which is the base class for `PeerManagerImpl`). +
+`PeerManagerImpl::FinalizeNode(const CNode& node)` permanently removes the peer from memory and eventually saves it to the disk if it is from an outbound connection and its misbehavior score is zero. +
+This method also removes the peer from `PeerManagerImpl::m_peer_map`, that is a map of all `Peer` objects. It also eliminates any blocks to be downloaded from this peer, stops processing announcements from it and cleans the `CNodeState::fPreferredDownload` and `CNodeState::ChainSyncTimeoutState::m_protect` status from this peer.
+
+[source,c++]  
+----
+void PeerManagerImpl::FinalizeNode(const CNode& node)
+{
+    NodeId nodeid = node.GetId();
+    int misbehavior{0};
+    {
+    LOCK(cs_main);
+    {
+        PeerRef peer = RemovePeer(nodeid);
+        assert(peer != nullptr);
+        misbehavior = WITH_LOCK(peer->m_misbehavior_mutex, return peer->m_misbehavior_score);
+    }
+    CNodeState *state = State(nodeid);
+    // ...
+    m_txrequest.DisconnectedPeer(nodeid);
+    nPreferredDownload -= state->fPreferredDownload;
+    nPeersWithValidatedDownloads -= (state->nBlocksInFlightValidHeaders != 0);
+    assert(nPeersWithValidatedDownloads >= 0);
+    m_outbound_peers_with_protect_from_disconnect -= state->m_chain_sync.m_protect;
+    // ...
+    if (node.fSuccessfullyConnected && misbehavior == 0 &&
+        !node.IsBlockOnlyConn() && !node.IsInboundConn()) {
+        m_addrman.Connected(node.addr);
+    }
+}
+----
+
+`CConnman::NotifyNumConnectionsChanged()` simply keeps track of the number of connections and notifies the client interface (`CClientUIInterface`) when it changes. +
+The node does not access the GUI directly. It sends the message `CClientUIInterface::NotifyNumConnectionsChanged()` to the interface, so it can signal that the number of connection has changed. Both `CConnman` and `CClientUIInterface` are in thread "_net_" (`ThreadSocketHandler`) .
+
+`client.cpp::NotifyNumConnectionsChanged()` intercepts the signal and calls the `ClientModel::updateNumConnections()` method, that is in "bitcoin-qt" thread (the main GUI).
+
+[source,c++]  
+----
+// src/node/ui_interface.cpp
+void CClientUIInterface::NotifyNumConnectionsChanged(int newNumConnections) { return g_ui_signals.NotifyNumConnectionsChanged(newNumConnections); }
+
+// src/node/ui_interface.cpp
+static void NotifyNumConnectionsChanged(ClientModel *clientmodel, int newNumConnections)
+{
+    bool invoked = QMetaObject::invokeMethod(clientmodel, "updateNumConnections", Qt::QueuedConnection, Q_ARG(int, newNumConnections));
+    assert(invoked);
+}
+
+void BitcoinGUI::setClientModel(ClientModel *_clientModel, interfaces::BlockAndHeaderTipInfo* tip_info)
+{
+    this->clientModel = _clientModel;
+    if(_clientModel)
+    {
+        //...
+        connect(_clientModel, &ClientModel::numConnectionsChanged, this, &BitcoinGUI::setNumConnections);
+        // ...
+    }
+}
+----
+
+`CConnman::SocketHandler()` accepts new connections, 
+
+
+
+
