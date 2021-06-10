@@ -402,6 +402,52 @@ With `poll()`, the application must allocate an array of `pollfd` structures, an
 An it is more efficient for large-valued file descriptors.
 To watch a single file descriptor with the value 900, for example, via `select()` — the kernel needs to check each bit of each passed-in set, up to the 900th bit.
 
+[source,c++]  
+----
+#include <poll.h>
+
+int poll(struct pollfd fds[], nfds_t nfds, int timeout); 
+----
+
+This function is very similar to `select()` in that they both watch sets of file descriptors for events, such as incoming data ready to `recv()`, socket ready to `send()` data to, out-of-band data ready to `recv()`, errors, etc.
+
+The basic idea is that you pass an array of `struct pollfd` in `fds`, the size of the array in `nfds` along with a certain `timeout` in milliseconds. 
+
+The timeout can be negative if you want to wait forever. If no event happen on any of the socket descriptors by the timeout, `poll()` terminates.
+
+Each element in the array of struct `pollfd` represents one socket descriptor, and contains the following fields:
+
+[source,c++]  
+----
+struct pollfd {
+    int fd;         // the socket descriptor
+    short events;   // bitmap of events we're interested in
+    short revents;  // when poll() returns, bitmap of events that occurred
+};
+----
+
+The array's members are `pollfd` structures within which `fd` specifies an open descriptor. The events and revents are bitmasks constructed by OR'ing a combination of the following event flags.
+
+|===
+|Event | Description
+
+| POLLIN
+| Data other than high-priority data may be read without blocking.
+
+| POLLOUT
+| Normal data may be written without blocking.
+
+| POLLERR
+| An error has occurred on the device or stream. This flag is only valid in the `revents` bitmask; it will be ignored in the events member.
+
+| POLLHUP
+| The remote side of the connection hung up.
+
+|===
+
+There other flags, but Bitcoin Core uses only these.
+
+
 
 === References
 
