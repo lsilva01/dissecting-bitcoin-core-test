@@ -305,11 +305,11 @@ The select() call takes several arguments:
 
 The next three parameters represent the three different types of events monitored by the `select()`: read, write, and exception events.
 
-`readfds` is an optional pointer to a set of sockets to be checked for readability.
+`readfds` is an optional pointer to a set of sockets to be checked for readability. A read event means that for a given fd, there is either some data to be read (so the application can call `recv()`) or a new connection has been established (so the application can call `accept()`).
 
-`writefds` is an optional pointer to a set of sockets to be checked for writability.
+`writefds` is an optional pointer to a set of sockets to be checked for writability. A write event means that for a given fd, the local send buffer has become non-empty and the application can send more data.
 
-`exceptfds` is an optional pointer to a set of sockets to be checked for errors.
+`exceptfds` is an optional pointer to a set of sockets to be checked for errors. An exception event means that there is some exception event like receiving out-of-band data. 
 
 The sixth and the last argument to `select()` is a timeout value in the form of a pointer to a `timeval` structure.
 
@@ -391,12 +391,16 @@ The code snippet just shows the process for `std::set<SOCKET> &recv_set`. Note t
 
 === `poll()`
 
-Until https://github.com/bitcoin/bitcoin/pull/14336[PR #14336], the only way to concurrently monitor multiple network connections (sockets) in Bitcoin Core was with the `select()` function, shown in the previous section.
+Until https://github.com/bitcoin/bitcoin/pull/14336[PR #14336], the only way to concurrently monitor multiple network connections (sockets) in Bitcoin Core was via the `select()` function, shown in the previous section.
 
-This PR introduced the use of `poll()` function and eliminated the restriction on maximum socket descriptor number, the `FD_SETSIZE` (typically `1024`).
+This PR introduced the use of `poll()` function and removed the restriction on the maximum number of socket descriptors, the `FD_SETSIZE` (typically `1024`). 
 
+With `poll()`, the application must allocate an array of `pollfd` structures, and pass the number of entries in this array, so there's no fundamental limit.
 
+`poll()` has some advantages over `select()`. It does not require that the user calculate the value of the highest- numbered file descriptor plus one.
 
+An it is more efficient for large-valued file descriptors.
+To watch a single file descriptor with the value 900 via select() — the kernel needs to check each bit of each passed-in set, up to the 900th bit.
 
 
 === References
