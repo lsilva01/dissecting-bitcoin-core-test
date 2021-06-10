@@ -400,7 +400,7 @@ With `poll()`, the application must allocate an array of `pollfd` structures, an
 `poll()` has some advantages over `select()`. It does not require that the user calculate the value of the highest- numbered file descriptor plus one.
 
 An it is more efficient for large-valued file descriptors.
-To watch a single file descriptor with the value 900 via select() — the kernel needs to check each bit of each passed-in set, up to the 900th bit.
+To watch a single file descriptor with the value 900, for example, via `select()` — the kernel needs to check each bit of each passed-in set, up to the 900th bit.
 
 
 === References
