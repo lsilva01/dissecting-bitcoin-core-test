@@ -154,6 +154,10 @@ Note that the POSIX function `socket()` returns non-negative integer, the socket
 
 In addition, the new `Sock` class has a `Send()`, `Recv()` and `Wait()` methods that can be overridden by unit tests to mock the socket operations.
 
+=== `setsockopt()`
+
+The `setsockopt()` function provides an application program with the means to control socket behavior. An application program can use `setsockopt()` to allocate buffer space, control timeouts, or permit socket data broadcasts. 
+
 === `WSAStartup()`
 
 The `WSAStartup` function initiates use of the Winsock DLL by a process. It is used in Bitcoin Core within `#ifdef WIN32` directive in `src/util/system.cpp:SetupNetworking()` function.
@@ -502,8 +506,13 @@ void CConnman::SocketEvents(...)
 }
 ----
 
+This version that uses the `poll(...)` starts exactly in the same way as the one using `select(...)`: retrieving via `GenerateSelectSet(...)` the sockets that will be monitored.
 
+For each of these sockets, a `struct pollfd` is created and the `fd` field of that structure receives the value of the file descriptor (socket id) and the `event` field receives the event type (`POLLIN` to receive data, `POLLOUT` for writing data and `POLLERR | POLLHUP` for error or disconnect events).
 
+After `poll(...)` is called, the method loops through `vpollfds` and splits the vector in three: `std::set<SOCKET> &recv_set`, `std::set<SOCKET> &send_set` and `std::set<SOCKET> &error_set`, according to event type. It keeps both methods (`poll()` and `select()` with same output type).
+
+=== Summary
 
 === References
 
