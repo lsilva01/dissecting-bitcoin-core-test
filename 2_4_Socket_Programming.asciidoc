@@ -16,7 +16,13 @@ There are certain rules that govern socket programming. For instance, there are 
 
 Two main types of socket domains are _Unix domain_ (a character string used where two Unix processes share a file system) and _Internet domain_ (internet address and port number).
 
-Let's break down the basic structure of an application using sockets and review the sequence of the events:
+This text breaks down the basic structure of an application using sockets and review the sequence of the events.
+
+The commit https://github.com/bitcoin/bitcoin/commit/c7dd9ff71b9c2e62fa7ecfb37ee7a5841ad67ecc[c7dd9ff71b] can be used as a reference for the https://github.com/bitcoin/bitcoin/tree/c7dd9ff71b9c2e62fa7ecfb37ee7a5841ad67ecc[project's codebase] at the time of writing.
+
+ git clone https://github.com/bitcoin/bitcoin.git
+ cd bitcoin
+ git checkout -b text_branch c7dd9ff71b
 
 === `sockaddr_in`
 
@@ -581,7 +587,120 @@ For each of these sockets, a `struct pollfd` is created and the `fd` field of th
 
 After `poll(...)` is called, the method loops through `vpollfds` and splits the vector in three: `std::set<SOCKET> &recv_set`, `std::set<SOCKET> &send_set` and `std::set<SOCKET> &error_set`, according to event type. It keeps both methods (`poll()` and `select()` with same output type).
 
+=== `recv()`
+
+The `recv()` function receives a message from a connected socket.
+
+[source,c++]  
+----
+#include <sys/socket.h>
+
+ssize_t recv(int socket, void *buffer, size_t length, int flags);
+----
+
+This function takes the following arguments:
+
+`socket` specifies the socket file descriptor.
+
+`buffer` points to a buffer where the message should be stored. 
+
+`length` specifies the length in bytes of the buffer pointed to by the buffer argument. 
+
+`flags` specifies the type of message reception. Bitcoin Core uses `MSG_DONTWAIT`, which enables non-blocking operation.
+
+Bitcoin Core calls `recv()` for every node when `CConnman::SocketEvents()` indicates there are sockets being monitored for read and exception events (`recv` and `error_set`).
+
+[source,c++]  
+----
+void CConnman::SocketHandler()
+{
+    std::set<SOCKET> recv_set, send_set, error_set;
+    SocketEvents(recv_set, send_set, error_set);
+    // ...
+    {
+        // ...
+        recvSet = recv_set.count(pnode->hSocket) > 0;
+        sendSet = send_set.count(pnode->hSocket) > 0;
+        errorSet = error_set.count(pnode->hSocket) > 0;
+    }
+    if (recvSet || errorSet)
+    {
+        // typical socket buffer is 8K-64K
+        uint8_t pchBuf[0x10000];
+        int nBytes = 0;
+        {
+            // ...
+            nBytes = recv(pnode->hSocket, (char*)pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+            // ...
+        }
+        // ...
+    }
+}
+----
+
+The `recv()` function is also called in `Sock::Recv` when connected through proxy.
+
+[source,c++]  
+----
+ssize_t Sock::Recv(void* buf, size_t len, int flags) const
+{
+    return recv(m_socket, static_cast<char*>(buf), len, flags);
+}
+----
+
+=== `send()`
+
+The `send()` function sends data on a connected socket.
+
+[source,c++]  
+----
+#include <sys/socket.h>
+
+ssize_t send(int socket, const void *buffer, size_t length, int flags);
+----
+
+`socket` specifies the socket file descriptor.
+
+`buffer` points to the buffer containing the message to send.
+
+`length` specifies the length of the message in bytes. 
+
+`flags` specifies the type of message transmission. Bitcoin Core uses `MSG_DONTWAIT`, which enables non-blocking operation and `MSG_NOSIGNAL`, which will turn the SIGPIPE behavior off. +
+A SIGPIPE is sent to a process if it tried to write to a socket that had been shutdown for writing or isn't connected (anymore).
+
+The `send()` function is also called in `Sock::Send` when connected through proxy.
+
+[source,c++]  
+----
+ssize_t Sock::Send(const void* data, size_t len, int flags) const
+{
+    return send(m_socket, static_cast<const char*>(data), len, flags);
+}
+----
+
 === Summary
+
+A _Socket_ refers to the connection of one host to another through the combination of compatible IP address and ports.
+
+The structure that contains the internet address is known as `sockaddr_in` and it is used to create a socket.
+
+Big-endianness is the dominant ordering in networking protocols, while little-endianness is the dominant ordering for processor architectures (x86, most ARM implementations, base RISC-V implementations). `htonl()` and `htons()` converts from host byte order to network byte order.
+
+The `socket()` function creates an unbound socket in a communications domain, and returns a file descriptor that can be used in later function calls that operate on sockets.
+
+The `setsockopt()` function provides an application program with the means to control socket behavior.
+
+The `bind()` function associates a socket with a `sockaddr_in` structure containing the IP address and port used to build the connection. 
+
+The `listen()` places a socket in a state in which it is listening for an incoming connection.
+
+The `accept()` function permits an incoming connection attempt on a socket.
+
+The `select()` function determines the status of one or more sockets, waiting if necessary, to perform synchronous I/O (receive and write data).
+
+The `pool()` function is very similar to `select()` in that they both watch sets of file descriptors for events, but more efficient.
+
+The `recv()` function receives a message from a connected socket and the `send()` function sends data on a connected socket.
 
 === References
 
