@@ -1,3 +1,4 @@
+[[socket_programming]]
 == Socket Programming
 
 The network concept of a _Socket_ refers to the connection of one host to another through the combination of compatible IP address and ports. 
@@ -24,6 +25,7 @@ The commit https://github.com/bitcoin/bitcoin/commit/c7dd9ff71b9c2e62fa7ecfb37ee
  cd bitcoin
  git checkout -b text_branch c7dd9ff71b
 
+[[sockaddr_in]]
 === `sockaddr_in`
 
 The structure that contains the internet address is known as `sockaddr_in`. The definition of that structure is:
@@ -65,6 +67,7 @@ The structure's data members are used as follows:
 
 `sin_zero` is used with a char array buffer, usually set to 0.
 
+[[htonl_htons]]
 === `htonl()` and `htons()`
 
 Big-endianness is the dominant ordering in networking protocols, such as in the internet protocol suite, where it is referred to as network order, transmitting the most significant byte first. Conversely, little-endianness is the dominant ordering for processor architectures (x86, most ARM implementations, base RISC-V implementations) and their associated memory.
@@ -109,6 +112,7 @@ bool CService::GetSockAddr(struct sockaddr* paddr, socklen_t *addrlen) const
 }
 ----
 
+[[socket]]
 === `socket()`
 
 The `socket()` function creates an unbound socket in a communications domain, and returns a file descriptor that can be used in later function calls that operate on sockets.
@@ -160,6 +164,7 @@ Note that the POSIX function `socket()` returns non-negative integer, the socket
 
 In addition, the new `Sock` class has a `Send()`, `Recv()` and `Wait()` methods that can be overridden by unit tests to mock the socket operations.
 
+[[setsockopt]]
 === `setsockopt()`
 
 The `setsockopt()` function provides an application program with the means to control socket behavior. An application program can use `setsockopt()` to allocate buffer space, control timeouts, or permit socket data broadcasts.
@@ -233,6 +238,7 @@ bool CConnman::BindListenPort(...)
 }
 ----
 
+[[wsatartup]]
 === `WSAStartup()`
 
 The `WSAStartup` function initiates use of the Winsock DLL by a process. It is used in Bitcoin Core within `#ifdef WIN32` directive in `src/util/system.cpp:SetupNetworking()` function.
@@ -242,6 +248,7 @@ The `WSAStartup` function initiates use of the Winsock DLL by a process. It is u
 int WSAStartup( WORD wVersionRequired, LPWSADATA lpWSAData);
 ----
 
+[[bind]]
 === `bind()`
 
 The `bind()` function associates a socket with a `sockaddr_in` structure containing the IP address and port used to build the connection. 
@@ -287,6 +294,7 @@ bool CConnman::BindListenPort(const CService& addrBind, ...)
 }
 ----
 
+[[listen]]
 === `listen()`
 
 The `listen()` places a socket in a state in which it is listening for an incoming connection.
@@ -324,6 +332,7 @@ bool CConnman::BindListenPort(const CService& addrBind, ...)
 }
 ----
 
+[[accept]]
 === `accept()`
 
 The `accept()` function permits an incoming connection attempt on a socket.
@@ -358,6 +367,7 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
 }
 ----
 
+[[select]]
 === `select()`
 
 A fair number of socket calls, like `accept()` and `recv()`, are blocking. This is a problem for real-life network applications, where a socket server needs to handle a large number of clients. 
@@ -378,7 +388,7 @@ struct timeval {
 };
 ----
 
-The select() call takes several arguments:
+The `select()` call takes several arguments:
 
 `nfds` is the highest file descriptor plus one. Thus, if two file descriptors with values 2 and 10 should be selected, then the nfds parameter should be 10 + 1 or 11 and not 2. The maximum number of sockets supported by select() has an upper limit, represented by `FD_SETSIZE` (typically `1024`). For simpler programs, passing `FD_SETSIZE` as nfds should be more than sufficient.
 
@@ -469,6 +479,7 @@ The `fd_set` structure is used by sockets functions and service providers, such 
 
 The code snippet just shows the process for `std::set<SOCKET> &recv_set`. Note that the same steps are apply to `std::set<SOCKET> &send_set` and `std::set<SOCKET> &error_set`. This method not only selects the sockets to be monitored, but also divides them in three sets for better handling.
 
+[[poll]]
 === `poll()`
 
 Until https://github.com/bitcoin/bitcoin/pull/14336[PR #14336], the only way to concurrently monitor multiple network connections (sockets) in Bitcoin Core was via the `select()` function, shown in the previous section.
@@ -587,6 +598,7 @@ For each of these sockets, a `struct pollfd` is created and the `fd` field of th
 
 After `poll(...)` is called, the method loops through `vpollfds` and splits the vector in three: `std::set<SOCKET> &recv_set`, `std::set<SOCKET> &send_set` and `std::set<SOCKET> &error_set`, according to event type. It keeps both methods (`poll()` and `select()` with same output type).
 
+[[recv]]
 === `recv()`
 
 The `recv()` function receives a message from a connected socket.
@@ -648,6 +660,7 @@ ssize_t Sock::Recv(void* buf, size_t len, int flags) const
 }
 ----
 
+[[send]]
 === `send()`
 
 The `send()` function sends data on a connected socket.
@@ -678,6 +691,7 @@ ssize_t Sock::Send(const void* data, size_t len, int flags) const
 }
 ----
 
+[[summary]]
 === Summary
 
 A _Socket_ refers to the connection of one host to another through the combination of compatible IP address and ports.
@@ -702,6 +716,7 @@ The `pool()` function is very similar to `select()` in that they both watch sets
 
 The `recv()` function receives a message from a connected socket and the `send()` function sends data on a connected socket.
 
+[[references]]
 === References
 
 https://www.die.net/[Die.net - Linux Man Page]
