@@ -44,7 +44,7 @@ The tests can be run directly, with `<filename>` as shown below:
 
  test/functional/rpc_getchaintips.py
 
-Or indirectly through the test suite, implemented by `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_runner.py[test/functional/test_runner.py]`, as can be seen below. If no test file is passed as parameter, all test files will be executed.
+Or indirectly through the test suite, implemented by `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_runner.py[test/functional/test_runner.py]`, as shown below. If no test file is passed as the parameter, all test files will be executed.
 
  test/functional/test_runner.py test/functional/rpc_getchaintips.py
  test/functional/test_runner.py test/functional/wallet*
@@ -69,9 +69,9 @@ def main():
 [[test_test_framework]]
 === `test/test_framework/*`
 
-In the `https://github.com/bitcoin/bitcoin/tree/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework[test/test_framework]` folder, there are some files that implement useful functionalities to help the developer write a test. Most of these functions will be reused for various tests. It is basically a test framework.
+In the `https://github.com/bitcoin/bitcoin/tree/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework[test/test_framework]` folder, there are some files that implement useful functionalities to help the developer write a test. Most of these functions will be reused for various tests.
 
-The table below describes some relevant files that compose the framework.
+The table below describes some relevant files make up the framework.
 
 |===
 |File | Description
@@ -101,13 +101,15 @@ The table below describes some relevant files that compose the framework.
 |A class for representing a bitcoind node under test (`TestNode`).
 |===
 
-The `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/p2p.py[p2p.py]` file was originally called `mininode.py`, a reference to the p2p interface objects used to connect to the bitcoind node. However that name has proved to be confusing for new contributors, so it has been renamed to `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/p2p.py[p2p.py]` in the https://github.com/bitcoin/bitcoin/pull/19760[PR #19760].
+The `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/p2p.py[p2p.py]` file was originally called `mininode.py`, a reference to the p2p interface objects used to connect to the `bitcoind` node. However that name proved to be confusing for new contributors, so it has been renamed to `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/p2p.py[p2p.py]` in the https://github.com/bitcoin/bitcoin/pull/19760[PR #19760].
 
 [[bitcointestframework_section]]
 === BitcoinTestFramework
 
-Every test is a subclass of `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L78[BitcoinTestFramework]`. It sets up a chain in `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L96[-regtest]` mode (meaning that it is not necessary to wait 10 minutes for a block) and https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L396[sets up any number of nodes] to be used in the test. +
-Individual bitcoin test scripts should subclass this class and override the `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L350[set_test_params()]` and `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L426[run_test()]` methods. 
+they set up any number of nodes
+
+Every test is a subclass of `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L78[BitcoinTestFramework]`. They set up a chain in `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L96[-regtest]` mode (meaning that it is not necessary to wait 10 minutes for a block) and https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L396[they set up any number of nodes] to be used in the test. +
+Individual tests should subclass `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L78[BitcoinTestFramework]` and override the `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L350[set_test_params()]` and `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L426[run_test()]` methods. 
 
 An atribute that is usually set in  `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L350[set_test_params()]`  is the `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L124[self.num_nodes]`, which indicates how many nodes the test will use. A node is a `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_framework.py#L229[bitcoind]` instance. Each bitcoind node is managed by a python `https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_node.py#L53[TestNode]` object which is used to https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_node.py#L186[start]/ https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_node.py#L315[stop] the node, https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_node.py#L99[manage the node's data directory], read state about the node (e.g., https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_node.py#L210[process status], https://github.com/bitcoin/bitcoin/blob/b8593616dc2ab5b8f81edd8b2408d400e3b696cd/test/functional/test_framework/test_node.py#L372[log file]), and interact with the node over different interfaces.
 
