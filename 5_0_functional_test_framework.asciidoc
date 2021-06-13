@@ -198,7 +198,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.start_nodes()
         # ....
 ----
-
+// ---
 .BitcoinTestMetaClass
 [NOTE]
 ===============================
