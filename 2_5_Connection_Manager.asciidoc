@@ -404,8 +404,12 @@ void BitcoinGUI::setClientModel(ClientModel *_clientModel, interfaces::BlockAndH
 }
 ----
 
-`CConnman::SocketHandler()` accepts new connections, 
+`CConnman::SocketHandler()` encapsulates some important socket functions.
 
+When Bitcoin Core is started, `CConnman::BindListenPort()` and `src/netbase.cpp:CreateSockTCP(...)` create some sockets to listen incoming connection. To do this, the functions use POSIX functions `socket()`, `setsockopt()`, `bind()` and them `listen()` to configure the socket.
 
+A detailed explanation of each of these POSIX functions can be found in link:2_4_Socket_Programming.asciidoc[Socket Programming] text.
+
+If the node operator does not want to accept incoming connection, the argument `-listen=0` can be used.
 
 
