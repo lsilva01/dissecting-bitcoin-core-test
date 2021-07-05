@@ -414,8 +414,16 @@ The sockets to listen for connections are stored in the `std::vector<ListenSocke
 
 The `CConnman::CreateNodeFromAcceptedSocket()` creates a `CNode` object with the socket and allocates it in `std::vector<CNode*> CConnman::vNodes`, which maintains a list of connected nodes.
 
-Another important function is `CConnman::SocketEvents(...)`
+Another important function is `CConnman::SocketEvents(...)`. This function retrieves the peers (sockets) that will be monitored. To do this, the POSIX function `select()` or `poll()` is used. They allow a large number of sockets to be monitored, all in one shot without having to block individually for each socket.
+
+The difference between `select()` or `poll()` is the number of sockets allowed and the efficiency. This is also better explained in the link:2_4_Socket_Programming.asciidoc[Socket Programming] text.
+
+If there are nodes to receive information from (`recv_set`), the POSIX command `recv()` is used on each node/socket. The received message is allocated in `vRecvMsg`, and then in `CNode::vProcessMsg` to be processed in `PeerManagerImpl::ProcessMessages(...)`.
+
+`CConnman::SocketSendData(CNode& node)` send data to the the peers. This function uses POSIX function `send()`. The message to send are stored in `CNode::vSendMsg` vector and they are inserted in this vector in `CConnman::PushMessage(...)`. Once sent, the message is removed from the vector.
 
 If the node operator does not want to accept incoming connection, the argument `-listen=0` can be used.
+
+
 
 
