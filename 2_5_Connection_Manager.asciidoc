@@ -422,6 +422,42 @@ If there are nodes to receive information from (`recv_set`), the POSIX command `
 
 `CConnman::SocketSendData(CNode& node)` send data to the the peers. This function uses POSIX function `send()`. The message to send are stored in `CNode::vSendMsg` vector and they are inserted in this vector in `CConnman::PushMessage(...)`. Once sent, the message is removed from the vector.
 
+[source,c++]  
+----
+void CConnman::SocketHandler()
+{
+    std::set<SOCKET> recv_set, send_set, error_set;
+    SocketEvents(recv_set, send_set, error_set);
+
+    if (interruptNet) return;
+
+    for (const ListenSocket& hListenSocket : vhListenSocket)
+    {
+        if (hListenSocket.socket != INVALID_SOCKET && recv_set.count(hListenSocket.socket) > 0)
+        {
+            AcceptConnection(hListenSocket);
+        }
+    }
+    // ...
+    for (CNode* pnode : vNodesCopy)
+    {
+        // ...
+        {
+            // ...
+            nBytes = recv(pnode->hSocket, (char*)pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+        }
+        // ...
+        if (sendSet) {
+            // Send data
+            size_t bytes_sent = WITH_LOCK(pnode->cs_vSend, return SocketSendData(*pnode));
+            if (bytes_sent) RecordBytesSent(bytes_sent);
+        }
+        // ...
+    }
+    // ...
+}
+----
+
 If the node operator does not want to accept incoming connection, the argument `-listen=0` can be used.
 
 
