@@ -471,3 +471,55 @@ The thread first retrieves the DNS seeds, that are hardcoded and stored in `src/
 Then, it checks if the user wants to force the use of the DND Seeds which can be done with `-forcednsseed`. It also checks if the address manager (CConnman::addrman) already has addresses.
 
 If there are peers stored in `addrman`, then the `https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L1588[ThreadDNSAddressSeed]` waits for a while before querying DNS seeds. The waiting time is defined by the constant `https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L72[DNSSEEDS_DELAY_MANY_PEERS]` (5 minutes) if there are 1000 peers or more stored. Otherwise, it is defined by the constant `https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L71[DNSSEEDS_DELAY_FEW_PEERS]` (11 seconds).
+
+`ThreadDNSAddressSeed` checks whether the node was able to connect successfully to at least 2 peers loaded from the AddrMan (Addresses Manager). In this case, it skips querying DNS and the thread execution finishes. These connections can be either full relay or block relay.
+
+If the node does not get any connections, it will https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L1678[query these seeds via the DNS protocol], which resolves to IP addresses independent from the bitcoin protocol. But if the node is https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L1666[behind a proxy] (or if the seeder https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L1690[does not support] service bit filtering over DNS), the seeders are treated as an `https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.h#L182[ADDR_FETCH]` connection.
+
+To prevent a single malicious seeder from dominating AddrMan by announcing large numbers of IP addresses, the number of IPs each seeder can contribute is https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L1677[limited to 256].
+
+[source,c++]  
+----
+void CConnman::ThreadDNSAddressSeed()
+{
+    FastRandomContext rng;
+    std::vector<std::string> seeds = Params().DNSSeeds();
+    Shuffle(seeds.begin(), seeds.end(), rng);
+    // ...
+    if (gArgs.GetBoolArg("-forcednsseed", DEFAULT_FORCEDNSSEED)) {
+        seeds_right_now = seeds.size();
+    } else if (addrman.size() == 0) {
+        seeds_right_now = seeds.size();
+    }
+    // ...
+    const std::chrono::seconds seeds_wait_time = (addrman.size() >= DNSSEEDS_DELAY_PEER_THRESHOLD ? DNSSEEDS_DELAY_MANY_PEERS : DNSSEEDS_DELAY_FEW_PEERS);
+    for (const std::string& seed : seeds) {
+        // ...
+        if (addrman.size() > 0) {
+            // ...
+            int nRelevant = 0;
+            {
+                LOCK(cs_vNodes);
+                for (const CNode* pnode : vNodes) {
+                    if (pnode->fSuccessfullyConnected && pnode->IsFullOutboundConn()) ++nRelevant;
+                }
+            }
+            if (nRelevant >= 2) {
+                // ...
+                return;
+            }
+        }
+        if (HaveNameProxy()) {
+            AddAddrFetch(seed);
+        } else {
+            unsigned int nMaxIPs = 256; 
+            if (LookupHost(host, vIPs, nMaxIPs, true)) {
+                // ...
+                addrman.Add(vAdd, resolveSource);
+            } else {
+                AddAddrFetch(seed);
+            }
+        }
+    }
+}
+----
