@@ -412,6 +412,8 @@ A detailed explanation of each of these POSIX functions can be found in link:2_4
 
 The sockets to listen for connections are stored in the `std::vector<ListenSocket> CConnman::vhListenSocket` field. The first function that `CConnman::SocketHandler()` calls is `CConnman::AcceptConnection(...)` for each listening socket. This method accepts the incoming connection via POSIX function `accept()`. 
 
+If the node operator does not want to accept incoming connection, the argument `-listen=0` can be used.
+
 The `CConnman::CreateNodeFromAcceptedSocket()` creates a `CNode` object with the socket and allocates it in `std::vector<CNode*> CConnman::vNodes`, which maintains a list of connected nodes.
 
 Another important function is `CConnman::SocketEvents(...)`. This function retrieves the peers (sockets) that will be monitored. To do this, the POSIX function `select()` or `poll()` is used. They allow a large number of sockets to be monitored, all in one shot without having to block individually for each socket.
@@ -458,8 +460,14 @@ void CConnman::SocketHandler()
 }
 ----
 
-If the node operator does not want to accept incoming connection, the argument `-listen=0` can be used.
+=== ThreadDNSAddressSeed
 
+The `ThreadDNSAddressSeed` is used to connect to DNS Servers and to retrieve  a list of IP addresses that have recently been running a Bitcoin client. 
 
+Typically, this thread is used when the node is started for the first time. Otherwise, the node avoids the DNS Seeds, since these connections leaks to the ISP that the requestor is a running bitcoin node. Also, DNS sources can provide useless or malicious addresses. 
 
+The thread first retrieves the DNS seeds, that are hardcoded and stored in `src/chainparams.cpp` and randomizes their order.
 
+Then, it checks if the user wants to force the use of the DND Seeds which can be done with `-forcednsseed`. It also checks if the address manager (CConnman::addrman) already has addresses.
+
+If there are peers stored in `addrman`, then the `https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L1588[ThreadDNSAddressSeed]` waits for a while before querying DNS seeds. The waiting time is defined by the constant `https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L72[DNSSEEDS_DELAY_MANY_PEERS]` (5 minutes) if there are 1000 peers or more stored. Otherwise, it is defined by the constant `https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.cpp#L71[DNSSEEDS_DELAY_FEW_PEERS]` (11 seconds).
