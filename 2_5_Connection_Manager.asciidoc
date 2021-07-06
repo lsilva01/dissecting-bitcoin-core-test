@@ -523,3 +523,54 @@ void CConnman::ThreadDNSAddressSeed()
     }
 }
 ----
+
+=== ThreadOpenAddedConnections
+
+The `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.cpp#L2538[threadOpenAddedConnections]` calls `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.cpp#L2064[GetAddedNodeInfo()]` to https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.cpp#L2123[get information about the nodes] added through the `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/rpc/net.cpp#L274[addnode]` RPC command or the `-connect` configuration option. These nodes are stored in `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.h#L1135[std::vector<std::string> vAddedNodes]`, which is protected by `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.h#L1136[cs_vAddedNodes]` mutex. `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.cpp#L2118[ThreadOpenAddedConnections()]` is a infinite loop that checks the if added addresses are connected and, if not, tries to connect to them.
+
+The connections are open using `CConnman::OpenNetworkConnection(...)` method and the type of the connection is `ConnectionType::MANUAL`. 
+
+Manual connections cannot be evicted and do not contribute to the limits of outbound-full-relay and outbound-block-relay. The limit for manual connections is defined by the constant `https://github.com/bitcoin/bitcoin/blob/9313c4e6aa4b707c06a86b33d5d2753cd8383340/src/net.h#L66[MAX_ADDNODE_CONNECTIONS]`, whose default value is 8.
+
+[source,c++]  
+----
+void CConnman::ThreadOpenAddedConnections()
+{
+    while (true)
+    {
+        CSemaphoreGrant grant(*semAddnode);
+        std::vector<AddedNodeInfo> vInfo = GetAddedNodeInfo();
+        bool tried = false;
+        for (const AddedNodeInfo& info : vInfo) {
+            if (!info.fConnected) {
+                // ...
+                CAddress addr(CService(), NODE_NONE);
+                OpenNetworkConnection(addr, false, &grant, info.strAddedNode.c_str(), ConnectionType::MANUAL);
+                if (!interruptNet.sleep_for(std::chrono::milliseconds(500)))
+                    return;
+            }
+        }
+        // ...
+    }
+}
+----
+
+=== ThreadOpenConnections
+
+`ThreadOpenConnections` initiates new connections to peers.
+
+This thread tries to fill all outbound connections. By default, the node has 8 full relay, 2 block relay and 1 Feeler connections.
+
+If the node was started with `-connect`, the thread just connects to the specified list and terminates.
+
+Then, the `next_feeler` time is defined. A Feeler connection is created on average every 2 minutes. 
+
+The `next_extra_block_relay` time is also defined. Periodically (on average every 5 minutes) the node connects to a peer (using regular outbound selection methodology from `addrman`) and stays connected long enough to sync headers, but not much longer. Then the peer is disconnected, if the node hasn't learned anything new. +
+The idea is to make eclipse attacks very difficult to execute, because every few minutes the node is finding a new peer to learn headers from.
+
+This thread calls `CConnman::ProcessAddrFetch()` in loop. This ensures that all ADDR_FETCH connections will be opened.
+
+Then, the thread waits until 60 seconds for addrman to fill. The ideia is check if the DNS Seeds, `-seednode` or `-addnode` will be used before fallback on to fixed seeds. If none of these options are available, it is done immediately.
+
+The fixed seeds are retrieved from `CChainParams::FixedSeeds()`.
+
