@@ -572,5 +572,67 @@ This thread calls `CConnman::ProcessAddrFetch()` in loop. This ensures that all 
 
 Then, the thread waits until 60 seconds for addrman to fill. The ideia is check if the DNS Seeds, `-seednode` or `-addnode` will be used before fallback on to fixed seeds. If none of these options are available, it is done immediately.
 
-The fixed seeds are retrieved from `CChainParams::FixedSeeds()`.
+The fixed seeds are retrieved from `CChainParams::FixedSeeds()`. This hardcoded list contains addresses of recently active nodes on the network and is updated every release cycle. The https://github.com/bitcoin/bitcoin/pull/18506[PR #18506] is an example of the process to update the fixed seeds.
 
+Then the thread determines what type of connection to open. +
+Opening BLOCK_RELAY connections to addresses from anchors.dat gets the highest priority. Then the node opens OUTBOUND_FULL_RELAY priority until it meets the full-relay capacity. Then it opens BLOCK_RELAY connection until block-relay-only peer limit is hit.
+
+`GetTryNewOutboundPeer()` gets set when a stale tip is detected, so the node tries opening an additional OUTBOUND_FULL_RELAY connection. If none of these conditions are met, the node checks to see if it's time to try an extra block-relay-only peer (to confirm our tip is current, see below) or the next_feeler timer to decide if it should open a FEELER.
+
+The peers are selected at random from `new` and `tried` tables, so an attack cannot exploit any bias to populate the tables.
+
+This thread also checks if any to-be-evicted `tried` table entries have been tested and if so, it resolves the collisions calling `CAddrMan::ResolveCollisions()`.
+
+[source,c++]  
+----
+void CConnman::ThreadOpenConnections(const std::vector<std::string> connect)
+{
+    if (!connect.empty())
+    {
+        // ...
+        for (const std::string& strAddr : connect)
+        {
+            OpenNetworkConnection(addr, false, nullptr, strAddr.c_str(), ConnectionType::MANUAL);
+        }
+    }
+    // ...
+    while (!interruptNet)
+    {
+        // ...
+        if (add_fixed_seeds && addrman.size() == 0) {
+            // ...
+            if (add_fixed_seeds_now) {
+                // ...
+                addrman.Add(ConvertSeeds(Params().FixedSeeds()), local);
+                add_fixed_seeds = false;
+            }
+        }
+        // ...
+        ConnectionType conn_type = ConnectionType::OUTBOUND_FULL_RELAY;
+        // ...
+        if (!m_anchors.empty() && (nOutboundBlockRelay < m_max_outbound_block_relay)) {
+            conn_type = ConnectionType::BLOCK_RELAY;
+            anchor = true;
+        } else if (nOutboundFullRelay < m_max_outbound_full_relay) {
+            // OUTBOUND_FULL_RELAY
+        } else if (nOutboundBlockRelay < m_max_outbound_block_relay) {
+            conn_type = ConnectionType::BLOCK_RELAY;
+        } else if (GetTryNewOutboundPeer()) {
+            // OUTBOUND_FULL_RELAY
+        } else if (now > next_extra_block_relay && m_start_extra_block_relay_peers) {
+            next_extra_block_relay = PoissonNextSend(now, EXTRA_BLOCK_RELAY_ONLY_PEER_INTERVAL);
+            conn_type = ConnectionType::BLOCK_RELAY;
+        } else if (now > next_feeler) {
+            next_feeler = PoissonNextSend(now, FEELER_INTERVAL);
+            conn_type = ConnectionType::FEELER;
+            fFeeler = true;
+        } else {
+            // skip to next iteration of while loop
+            continue;
+        }
+
+        addrman.ResolveCollisions();
+        // ...
+    }
+}
+----
