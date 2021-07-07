@@ -216,7 +216,7 @@ void CConnman::Interrupt()
 
 With the semaphores and flags defined, the next step is to  sequentially start all the network threads.
 
-=== ThreadSocketHandler
+=== `ThreadSocketHandler`
 
 The first thread started is the `ThreadSocketHandler`. The thread's main code is a loop that runs three functions continuously until interrupted by `interruptNet` flag.
 
@@ -460,7 +460,7 @@ void CConnman::SocketHandler()
 }
 ----
 
-=== ThreadDNSAddressSeed
+=== `ThreadDNSAddressSeed`
 
 The `ThreadDNSAddressSeed` is used to connect to DNS Servers and to retrieve  a list of IP addresses that have recently been running a Bitcoin client. 
 
@@ -524,7 +524,7 @@ void CConnman::ThreadDNSAddressSeed()
 }
 ----
 
-=== ThreadOpenAddedConnections
+=== `ThreadOpenAddedConnections`
 
 The `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.cpp#L2538[threadOpenAddedConnections]` calls `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.cpp#L2064[GetAddedNodeInfo()]` to https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.cpp#L2123[get information about the nodes] added through the `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/rpc/net.cpp#L274[addnode]` RPC command or the `-connect` configuration option. These nodes are stored in `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.h#L1135[std::vector<std::string> vAddedNodes]`, which is protected by `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.h#L1136[cs_vAddedNodes]` mutex. `https://github.com/bitcoin/bitcoin/blob/4b5659c6b115315c9fd2902b4edd4b960a5e066e/src/net.cpp#L2118[ThreadOpenAddedConnections()]` is a infinite loop that checks the if added addresses are connected and, if not, tries to connect to them.
 
@@ -555,7 +555,7 @@ void CConnman::ThreadOpenAddedConnections()
 }
 ----
 
-=== ThreadOpenConnections
+=== `ThreadOpenConnections`
 
 `ThreadOpenConnections` initiates new connections to peers.
 
@@ -632,6 +632,50 @@ void CConnman::ThreadOpenConnections(const std::vector<std::string> connect)
         }
 
         addrman.ResolveCollisions();
+        // ...
+    }
+}
+----
+
+=== `ThreadMessageHandler`
+
+Almost all `net_processing` and `validation` logic runs on this thread. As long as the flag `flagInterruptMsgProc` is true, the thread continues to send and receive messages.
+
+First, `ThreadMessageHandler` randomizes the order in which messages are processed from/to our peers.  This prevents attacks in which an attacker exploits having multiple onsecutive connections in the `vNodes` list.
+
+Then, for each node, the thread calls `PeerManagerImpl::ProcessMessages(...)` to process each received message and `PeerManagerImpl::SendMessages(...)` to send message to the node.
+
+Note that these functions belong to the network processing layer. It is a higher level than the network layer and therefore messages here are handled at the protocol level, not sockets.
+
+[source,c++]  
+----
+void CConnman::ThreadMessageHandler()
+{
+    FastRandomContext rng;
+    while (!flagInterruptMsgProc)
+    {
+        // ...
+        Shuffle(vNodesCopy.begin(), vNodesCopy.end(), rng);
+
+        for (CNode* pnode : vNodesCopy)
+        {
+            if (pnode->fDisconnect)
+                continue;
+
+            // Receive messages
+            bool fMoreNodeWork = m_msgproc->ProcessMessages(pnode, flagInterruptMsgProc);
+            fMoreWork |= (fMoreNodeWork && !pnode->fPauseSend);
+            if (flagInterruptMsgProc)
+                return;
+            // Send messages
+            {
+                LOCK(pnode->cs_sendProcessing);
+                m_msgproc->SendMessages(pnode);
+            }
+
+            if (flagInterruptMsgProc)
+                return;
+        }
         // ...
     }
 }
