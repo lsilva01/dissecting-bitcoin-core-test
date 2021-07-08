@@ -12,7 +12,8 @@ The commit https://github.com/bitcoin/bitcoin/commit/c7dd9ff71b9c2e62fa7ecfb37ee
  git clone https://github.com/bitcoin/bitcoin.git
  cd bitcoin
  git checkout -b text_branch c7dd9ff71b
-                             
+
+[[starting_the_node]]                           
 === Starting The Node
 
 The `CConnman` and all the network processes are started in `AppInitMain(...)`, which is basically the main function of the application. When the node shuts down, connections are securely closed by `CConnman`.

@@ -130,6 +130,12 @@ Proposal: Review and update of the book "Dissection of Bitcoin"
   * [`send()`](2_4_Socket_Programming.asciidoc#send)
   * [Summary](2_4_Socket_Programming.asciidoc#summary)
   * [References](2_2_evicting_incoming_connection.asciidoc#references)
+
+
+* [Connection Manager](2_5_Connection_Manager.asciidoc)
+  * [`Starting The Node`](2_5_Connection_Manager.asciidoc#starting_the_node)
+
+
 * [Adresses](3_0_bitcoin_address.asciidoc)
 * [Transactions](3_1_transactions.asciidoc)
 * [Serialization](4_0_serialization.asciidoc)
