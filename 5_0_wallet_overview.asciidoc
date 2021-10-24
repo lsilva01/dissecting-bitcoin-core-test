@@ -4,6 +4,7 @@ Wallets are created by `createwallet` RPC, defined in  `src/wallet/rpc_wallet`.
 
 [source,c++]
 ----
+// src/wallet/rpc_wallet.cpp
 static RPCHelpMan createwallet()
 {
     return RPCHelpMan{
@@ -16,3 +17,101 @@ static RPCHelpMan createwallet()
 }
 ----
 
+There are some arguments supported by this function but the only mandatory is the wallet name (_wallet_name_ parameter).
+
+The _disable_private_keys_ and _blank_ arguments are commonly used together to create create watch-only, multisig or externally signed wallets.
+
+The _passphrase_ parameter encrypts the wallet with the passphrase. The encryption is done by `CWallet::EncryptWallet(...)` and the passphrase is used to create the master key. So if the user changes the passphrase later, a new master key and all derivation will be created again. By this reason, the user must do a new backup right after changing the passphrase.
+
+[source,c++]
+----
+// src/wallet.cpp
+bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
+{
+    CKeyingMaterial _vMasterKey;
+
+    _vMasterKey.resize(WALLET_CRYPTO_KEY_SIZE);
+    GetStrongRandBytes(_vMasterKey.data(), WALLET_CRYPTO_KEY_SIZE);
+
+    CMasterKey kMasterKey;
+
+    kMasterKey.vchSalt.resize(WALLET_CRYPTO_SALT_SIZE);
+    GetStrongRandBytes(kMasterKey.vchSalt.data(), WALLET_CRYPTO_SALT_SIZE);
+
+    // ...
+
+    if (!crypter.SetKeyFromPassphrase(strWalletPassphrase, kMasterKey.vchSalt, kMasterKey.nDeriveIterations, kMasterKey.nDerivationMethod))
+        return false;
+    if (!crypter.Encrypt(_vMasterKey, kMasterKey.vchCryptedKey))
+        return false;
+
+    {
+        // ...
+        encrypted_batch->WriteMasterKey(nMasterKeyMaxID, kMasterKey);
+        // ..
+    }
+    NotifyStatusChanged(this);
+
+    return true;
+}
+----
+
+The _avoid_reuse_ wallet flag was introduced in PR #13756, which was subsequently followed up with PR #16239 to mitigate exposure to dust attacks.
+
+Bitcoin dust refers to UTXOs with tiny values that are so small that they are economically unspendable. That is, it costs more (in transaction fees) to spend than the value of the UTXOs. It’s possible to end up with dust in the wallet due to poor UTXO management. It’s also possible to receive not requested dust deposits. This is because it is not possible to stop someone from sending funds to a valid bitcoin address and every bitcoin address that has ever received funds is publicly viewable on the blockchain.
+
+There are some reason for someone sends dust to a wallet:
+
+* To grief / annoy Bitcoin users
+* To get their attention and advertise something to them
+* To trick recipients into using more block space, jacking up the fee rates
+* To trick recipients into correlating more of their wallet addresses
+
+So, enabling _avoid_reuse_ mitigates the dust attack as follows:
+
+* avoiding spending from destinations that the wallet has previously spent from, and
+
+* attempting to sweep larger parts of the outputs to a destination when it does spend, from a destination that has multiple outputs available.
+
+To achieve this, the _avoid_reuse_ parameter, if true, adds the `WALLET_FLAG_AVOID_REUSE` flag to the wallet. This flag has impact in the wallet balance and in the available coins, disabling the funds from reused addresses.
+
+
+[source,c++]
+----
+// src/wallet.cpp
+static RPCHelpMan createwallet()
+{
+    // ...
+    if (!request.params[4].isNull() && request.params[4].get_bool()) {
+        flags |= WALLET_FLAG_AVOID_REUSE;
+    }
+    // ...
+}
+
+static RPCHelpMan getbalances()
+{
+    // ...
+    if (wallet.IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE)) {
+            const auto full_bal = GetBalance(wallet, 0, false);
+            // ...
+        }
+    // ...
+}
+
+// src/wallet.cpp
+void AvailableCoins(...)
+{
+    // ...
+    bool allow_used_addresses = !wallet.IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE) || (coinControl && !coinControl->m_avoid_address_reuse);
+    // ...
+}
+----
+
+
+
+[[references]]
+=== References
+
+* https://blog.keys.casa/bitcoin-dust-attack-myths-misconceptions/[Bitcoin Dust Attack Myths & Misconceptions]
+
+* https://bitcoincore.reviews/17824[Improve coin selection for destination groups >10]
