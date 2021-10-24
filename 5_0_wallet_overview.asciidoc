@@ -1,0 +1,18 @@
+=== Creating Wallet
+
+Wallets are created by `createwallet` RPC, defined in  `src/wallet/rpc_wallet`.
+
+[source,c++]
+----
+static RPCHelpMan createwallet()
+{
+    return RPCHelpMan{
+        "createwallet",
+        "\nCreates and loads a new wallet.\n",
+        {
+            ...
+        }
+    };
+}
+----
+
