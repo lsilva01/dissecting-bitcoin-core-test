@@ -56,7 +56,7 @@ bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
 }
 ----
 
-The _avoid_reuse_ wallet flag was introduced in PR #13756, which was subsequently followed up with PR #16239 to mitigate exposure to dust attacks.
+The _avoid_reuse_ wallet flag was introduced in PR https://github.com/bitcoin/bitcoin/pull/13756[#13756], which was subsequently followed up with PR https://github.com/bitcoin/bitcoin/pull/16239[#16239] to mitigate exposure to dust attacks.
 
 Bitcoin dust refers to UTXOs with tiny values that are so small that they are economically unspendable. That is, it costs more (in transaction fees) to spend than the value of the UTXOs. It’s possible to end up with dust in the wallet due to poor UTXO management. It’s also possible to receive not requested dust deposits. This is because it is not possible to stop someone from sending funds to a valid bitcoin address and every bitcoin address that has ever received funds is publicly viewable on the blockchain.
 
@@ -106,6 +106,17 @@ void AvailableCoins(...)
     // ...
 }
 ----
+
+The _avoid_reuse_ can be added to the wallet after the creation via `setwalletflag` RPC.
+
+The `descriptors` parameter adds the `WALLET_FLAG_DESCRIPTORS` flag. which is used to defined the database format as SQLite. This flag also determine the way the seed will be generated for the wallet.
+
+Until version 22, legacy wallet is the default option. The PR #23002 changed this and since then, newly created wallets are descriptor by default.
+
+
+
+
+
 
 
 
